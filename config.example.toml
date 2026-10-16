@@ -1,0 +1,34 @@
+# Copy this file to config.toml and fill in your values.
+# config.toml is gitignored: never commit it.
+
+[discord]
+token = ""                     # or the DISCORD_TOKEN environment variable
+guild_id = ""                  # Discord server where the commands are registered
+operator_role_id = ""          # optional: members with this role are operators (administrators always are)
+log_channel_id = ""            # optional: empty = log channel disabled
+
+[ssh]
+host = "192.168.1.50"
+port = 22
+user = "mcbot"
+key_path = "/app/secrets/id_ed25519"
+known_hosts = "/app/secrets/known_hosts"
+
+[server]
+host = "192.168.1.50"          # never shown to users
+port = 25565
+rcon_port = 25575
+rcon_password = ""             # or the RCON_PASSWORD environment variable
+start_timeout = "5m"
+stop_timeout = "90s"
+
+[server.names]                 # optional: name shown for each server folder
+survival = "Survival Friends"
+creative = "Creative"
+
+[status]
+interval = "60s"               # minimum 30s
+
+[autostop]
+enabled = true
+empty_minutes = 10

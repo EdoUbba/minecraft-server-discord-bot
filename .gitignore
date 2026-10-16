@@ -1,0 +1,12 @@
+# Installation-specific configuration and secrets
+config.toml
+secrets/
+.env
+
+# Build output
+/bot
+/bot.exe
+/dist/
+
+# Local Claude Code settings
+.claude/settings.local.json
