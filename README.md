@@ -211,6 +211,19 @@ show (`[server.names]`). Leave the paths as they are: they are the paths
 inside the container. Every option is described in
 [`config.example.toml`](config.example.toml).
 
+If Crafty Controller manages the servers, its database already holds the
+names it shows for each folder. On the Minecraft host, this prints them as
+`[server.names]` lines (read-only; adjust the path to your Crafty install):
+
+```sh
+python3 - <<'EOF'
+import sqlite3
+db = sqlite3.connect("file:/opt/crafty/docker/config/db/crafty.sqlite?mode=ro", uri=True)
+for server_id, name in db.execute("select server_id, server_name from servers"):
+    print(f'"{server_id}" = "{name}"')
+EOF
+```
+
 Put the token and the RCON password in `secrets/bot.env` rather than in
 `config.toml`:
 
