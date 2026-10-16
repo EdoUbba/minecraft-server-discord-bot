@@ -9,6 +9,11 @@ Wants=network-online.target
 Type=simple
 # The user that owns the server folders in /opt/mc, never root.
 User=minecraft
+# If java is not in /usr/bin (for example SDKMAN under /root, which this
+# user cannot read), install it in a shared folder and add a drop-in,
+# /etc/systemd/system/minecraft.service.d/java.conf:
+#   [Service]
+#   Environment=PATH=/opt/java/<version>/bin:/usr/local/bin:/usr/bin:/bin
 # The active server, chosen with "minecraft-ctl select".
 WorkingDirectory=/var/lib/minecraft-ctl/current
 ExecStart=/bin/bash -c 'if [ -f start.sh ]; then exec /bin/bash start.sh; else exec /bin/bash startserver.sh; fi'
