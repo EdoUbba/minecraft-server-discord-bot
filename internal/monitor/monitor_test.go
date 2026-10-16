@@ -24,6 +24,10 @@ func (p *fakePinger) Ping(context.Context) (minecraft.Status, error) {
 
 type fakeRCON struct{ calls []string }
 
+func (r *fakeRCON) ListPlayers(context.Context) ([]string, error) {
+	r.calls = append(r.calls, "list")
+	return []string{"Steve"}, nil
+}
 func (r *fakeRCON) Say(context.Context, string) error { r.calls = append(r.calls, "say"); return nil }
 func (r *fakeRCON) Stop(context.Context) error        { r.calls = append(r.calls, "stop"); return nil }
 
@@ -46,6 +50,16 @@ func (c *fakeControl) Start(context.Context) error {
 func (c *fakeControl) Stop(context.Context) error {
 	c.calls = append(c.calls, "stop")
 	c.active = "inactive"
+	return nil
+}
+
+func (c *fakeControl) List(context.Context) ([]string, error) {
+	c.calls = append(c.calls, "list")
+	return []string{"survival", "creative"}, nil
+}
+
+func (c *fakeControl) Select(context.Context, string) error {
+	c.calls = append(c.calls, "select")
 	return nil
 }
 
@@ -313,5 +327,31 @@ func TestBotRestartKeepsUptime(t *testing.T) {
 	h.wantState(Online)
 	if got := h.m.Snapshot().Since; !got.Equal(h.ctl.since) {
 		t.Fatalf("since = %v, want %v", got, h.ctl.since)
+	}
+}
+
+func TestSelectOnlyWhenOff(t *testing.T) {
+	h := newHarness(t)
+	h.online()
+	if err := h.m.Select(context.Background(), "creative"); !errors.Is(err, ErrState) {
+		t.Fatalf("select while online: error = %v, want ErrState", err)
+	}
+	if slices.Contains(h.ctl.calls, "select") {
+		t.Fatalf("ssh calls = %v, want no select", h.ctl.calls)
+	}
+	if _, err := h.m.Players(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	h.ctl.stopAfter = 0
+	h.m.Stop(context.Background())
+	if _, err := h.m.Players(context.Background()); !errors.Is(err, ErrState) {
+		t.Fatalf("players while off: error = %v, want ErrState", err)
+	}
+	if err := h.m.Select(context.Background(), "creative"); err != nil {
+		t.Fatal(err)
+	}
+	if got := h.m.Snapshot().Server; got != "creative" {
+		t.Fatalf("server = %q, want creative", got)
 	}
 }

@@ -65,6 +65,7 @@ type Snapshot struct {
 	Since      time.Time // when the server came online; zero when off
 	Players    int
 	MaxPlayers int
+	Version    string
 }
 
 // ErrState means the action is not allowed in the current state.
@@ -85,6 +86,7 @@ type Pinger interface {
 }
 
 type RCON interface {
+	ListPlayers(ctx context.Context) ([]string, error)
 	Say(ctx context.Context, message string) error
 	Stop(ctx context.Context) error
 }
@@ -93,6 +95,8 @@ type Control interface {
 	Start(ctx context.Context) error
 	Stop(ctx context.Context) error
 	Status(ctx context.Context) (control.Status, error)
+	List(ctx context.Context) ([]string, error)
+	Select(ctx context.Context, name string) error
 }
 
 type Options struct {
@@ -121,6 +125,7 @@ type Monitor struct {
 	lastSeen  time.Time // last ping with players, or when the server came online
 	players   int
 	max       int
+	version   string
 }
 
 func New(ping Pinger, rcon RCON, ctl Control, opts Options) *Monitor {
@@ -178,7 +183,7 @@ func (m *Monitor) Snapshot() Snapshot {
 		s.Since = m.since
 	}
 	if m.state == Online {
-		s.Players, s.MaxPlayers = m.players, m.max
+		s.Players, s.MaxPlayers, s.Version = m.players, m.max, m.version
 	}
 	return s
 }
@@ -199,6 +204,37 @@ func (m *Monitor) Start(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+// List returns the servers that can be selected.
+func (m *Monitor) List(ctx context.Context) ([]string, error) {
+	return m.ctl.List(ctx)
+}
+
+// Select makes name the active server. It is refused unless the server is
+// off; minecraft-ctl checks the service state again.
+func (m *Monitor) Select(ctx context.Context, name string) error {
+	m.mu.Lock()
+	state := m.state
+	m.mu.Unlock()
+	if state != Off {
+		return ErrState
+	}
+	if err := m.ctl.Select(ctx, name); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	m.server = name
+	m.mu.Unlock()
+	return nil
+}
+
+// Players returns the names of the online players, through RCON.
+func (m *Monitor) Players(ctx context.Context) ([]string, error) {
+	if m.Snapshot().State != Online {
+		return nil, ErrState
+	}
+	return m.rcon.ListPlayers(ctx)
 }
 
 // Stop runs the stop flow and returns when the server is off.
@@ -281,7 +317,7 @@ func (m *Monitor) pingOK(ctx context.Context, state State, st minecraft.Status) 
 		m.mu.Unlock()
 		return
 	}
-	m.players, m.max = st.OnlinePlayers, st.MaxPlayers
+	m.players, m.max, m.version = st.OnlinePlayers, st.MaxPlayers, st.Version
 	cameOnline := state != Online
 	if cameOnline {
 		m.state = Online
