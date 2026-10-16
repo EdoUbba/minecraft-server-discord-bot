@@ -156,6 +156,16 @@ Any Linux host with Docker and the Compose plugin (v2.24 or later). On Proxmox, 
 unprivileged LXC needs **Options → Features → nesting** (and **keyctl**) for
 Docker to run.
 
+On Debian, install Docker and the Compose plugin from Docker's repository, following
+[docs.docker.com/engine/install/debian](https://docs.docker.com/engine/install/debian/),
+plus `git`. Check with `docker compose version`.
+
+If the repository is private, give the host a read-only deploy key: create it
+with `ssh-keygen -t ed25519 -N "" -f ~/.ssh/github_deploy`, add the `.pub`
+under **Settings → Deploy keys** on GitHub (no write access), point
+`github.com` to it in `~/.ssh/config` (`IdentityFile ~/.ssh/github_deploy`)
+and clone with `git@github.com:EdoUbba/minecraft-server-discord-bot.git`.
+
 ```sh
 git clone https://github.com/EdoUbba/minecraft-server-discord-bot.git
 cd minecraft-server-discord-bot
