@@ -1,0 +1,11 @@
+# Keep secrets and installation files out of the build context and image.
+config.toml
+secrets/
+data/
+.env
+.git/
+.claude/
+*.md
+!README.md
+/bot
+/dist/

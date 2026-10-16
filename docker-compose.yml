@@ -1,0 +1,25 @@
+services:
+  bot:
+    build: .
+    image: minecraft-discord-bot
+    restart: unless-stopped
+    mem_limit: 64m
+    environment:
+      GOMEMLIMIT: 48MiB # keeps the Go heap well under mem_limit
+      TZ: Europe/Rome # time zone of the log timestamps
+    # Optional DISCORD_TOKEN and RCON_PASSWORD; they override config.toml.
+    env_file:
+      - path: ./secrets/bot.env
+        required: false
+    volumes:
+      - ./config.toml:/app/config.toml:ro
+      - ./secrets:/app/secrets:ro
+      - ./data:/app/data # /setup writes settings.json here
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
