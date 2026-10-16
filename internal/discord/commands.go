@@ -27,14 +27,13 @@ const (
 	maxOptionText    = 100
 )
 
-var operatorOnly = int64(discordgo.PermissionAdministrator)
-
-// commands are registered on the guild at every connection. The default
-// permission only hides the operator commands; the handlers check again.
+// commands are registered on the guild at every connection. All of them are
+// visible to everyone: Discord can hide a command only by permission, not by
+// role, which would hide it from operators too. The handlers check the role.
 var commands = []*discordgo.ApplicationCommand{
-	{Name: "startserver", Description: "Accende il server Minecraft", DefaultMemberPermissions: &operatorOnly},
-	{Name: "stopserver", Description: "Spegne il server Minecraft", DefaultMemberPermissions: &operatorOnly},
-	{Name: "config", Description: "Sceglie quale server Minecraft attivare", DefaultMemberPermissions: &operatorOnly},
+	{Name: "startserver", Description: "Accende il server Minecraft (solo operatori)"},
+	{Name: "stopserver", Description: "Spegne il server Minecraft (solo operatori)"},
+	{Name: "config", Description: "Sceglie quale server Minecraft attivare (solo operatori)"},
 	{Name: "status", Description: "Mostra lo stato del server Minecraft"},
 	{Name: "onlineplayer", Description: "Mostra i giocatori online"},
 }
@@ -59,9 +58,12 @@ const (
 )
 
 func (b *Bot) handle(i *discordgo.Interaction) {
+	user := userOf(i)
 	switch i.Type {
 	case discordgo.InteractionApplicationCommand:
-		switch name := i.ApplicationCommandData().Name; name {
+		name := i.ApplicationCommandData().Name
+		slog.Info("command", "name", name, "user_id", user.ID, "user", user.Username)
+		switch name {
 		case "startserver":
 			b.startServer(i)
 		case "stopserver":
@@ -76,6 +78,8 @@ func (b *Bot) handle(i *discordgo.Interaction) {
 			slog.Warn("unknown command", "name", name)
 		}
 	case discordgo.InteractionMessageComponent:
+		action, _, _ := strings.Cut(i.MessageComponentData().CustomID, "|")
+		slog.Info("component", "action", action, "user_id", user.ID, "user", user.Username)
 		b.component(i)
 	}
 }

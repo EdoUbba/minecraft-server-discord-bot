@@ -54,7 +54,7 @@ func (f *fakeSession) ChannelMessageSendComplex(string, *discordgo.MessageSend, 
 	return &discordgo.Message{}, nil
 }
 func (f *fakeSession) UpdateStatusComplex(d discordgo.UpdateStatusData) error {
-	f.presences = append(f.presences, d.Activities[0].State)
+	f.presences = append(f.presences, d.Activities[0].Name)
 	return nil
 }
 
@@ -186,7 +186,7 @@ func TestPresenceOnlyWhenTextChanges(t *testing.T) {
 	b.refreshPresence()
 	b.refreshPresence()
 
-	want := []string{"🟢 Survival Friends · da 2h 15m · 3/20", "🟢 Survival Friends · da 2h 15m · 4/20", "🔴 Server spento"}
+	want := []string{"🟢 Survival Friends · da 2h 15m · 3/20", "🟢 Survival Friends · da 2h 15m · 4/20", "🔴 Survival Friends è spento"}
 	if len(s.presences) != len(want) {
 		t.Fatalf("presences = %q, want %q", s.presences, want)
 	}

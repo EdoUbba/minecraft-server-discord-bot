@@ -181,7 +181,8 @@ func (b *Bot) kickPresence() {
 	}
 }
 
-// refreshPresence sends the presence text, only when it changed.
+// refreshPresence sends the presence, shown as "Sta giocando a <text>",
+// only when the text changed.
 func (b *Bot) refreshPresence() {
 	text := presenceText(b.srv.Snapshot(), b.opts.DisplayName, b.now())
 	b.presenceMu.Lock()
@@ -191,7 +192,7 @@ func (b *Bot) refreshPresence() {
 	}
 	err := b.s.UpdateStatusComplex(discordgo.UpdateStatusData{
 		Status:     string(discordgo.StatusOnline),
-		Activities: []*discordgo.Activity{{Name: "Custom Status", Type: discordgo.ActivityTypeCustom, State: text}},
+		Activities: []*discordgo.Activity{{Name: text, Type: discordgo.ActivityTypeGame}},
 	})
 	if err != nil {
 		slog.Warn("update presence", "error", err)
@@ -201,17 +202,18 @@ func (b *Bot) refreshPresence() {
 }
 
 func presenceText(s monitor.Snapshot, displayName func(string) string, now time.Time) string {
+	name := displayName(s.Server)
 	switch s.State {
 	case monitor.Starting:
-		return "🟡 Avvio in corso…"
+		return fmt.Sprintf("🟡 %s in avvio", name)
 	case monitor.Online:
-		return fmt.Sprintf("🟢 %s · da %s · %d/%d", displayName(s.Server), formatDuration(now.Sub(s.Since)), s.Players, s.MaxPlayers)
+		return fmt.Sprintf("🟢 %s · da %s · %d/%d", name, formatDuration(now.Sub(s.Since)), s.Players, s.MaxPlayers)
 	case monitor.Stopping:
-		return "🟠 Spegnimento…"
+		return fmt.Sprintf("🟠 %s in spegnimento", name)
 	case monitor.Unresponsive:
-		return "⚠️ Server non risponde"
+		return fmt.Sprintf("⚠️ %s non risponde", name)
 	}
-	return "🔴 Server spento"
+	return fmt.Sprintf("🔴 %s è spento", name)
 }
 
 // formatDuration writes d as "2h 15m" or "15m".
