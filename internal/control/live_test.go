@@ -13,9 +13,10 @@ import (
 // TestLiveHost checks the client against a real minecraft-ctl. It only runs
 // when MC_TEST_SSH_HOST is set, for example:
 //
-//	MC_TEST_SSH_HOST=192.168.1.50 MC_TEST_SSH_KEY=secrets/id_ed25519 \
-//	MC_TEST_SSH_KNOWN_HOSTS=secrets/known_hosts go test ./internal/control -run TestLiveHost -v
+//	MC_TEST_SSH_HOST=192.168.1.50 MC_TEST_SSH_KEY=$PWD/secrets/id_ed25519 \
+//	MC_TEST_SSH_KNOWN_HOSTS=$PWD/secrets/known_hosts go test ./internal/control -run TestLiveHost -v
 //
+// The paths must be absolute: go test runs inside the package folder.
 // MC_TEST_SSH_PORT and MC_TEST_SSH_USER default to 22 and mcbot. It never
 // starts or stops the server; when the service is stopped it re-selects the
 // active server, which changes nothing.
