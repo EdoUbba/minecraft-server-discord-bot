@@ -144,7 +144,6 @@ func (c *Config) validate() error {
 	}
 
 	required("discord.token (or "+EnvDiscordToken+")", c.Discord.Token.Reveal())
-	required("discord.guild_id", c.Discord.GuildID)
 	checkSnowflake(fail, "discord.guild_id", c.Discord.GuildID)
 	checkSnowflake(fail, "discord.operator_role_id", c.Discord.OperatorRoleID)
 	checkSnowflake(fail, "discord.log_channel_id", c.Discord.LogChannelID)

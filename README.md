@@ -145,10 +145,16 @@ players. RCON is not encrypted: it must not be reachable from anywhere else.
    ```
 
    3072 lets it read and write messages, which it needs for the log channel.
-3. In Discord turn on **User Settings → Advanced → Developer Mode**, then
-   right-click your server and **Copy Server ID**: that is the `guild_id`.
+3. In **Bot**, turn off **Public Bot**, so that only you can invite it.
 
-The bot registers its commands on that server by itself at every start.
+The bot registers its commands by itself on the Discord server it is in. To
+move it to another server, invite it there, remove it from the old one and run
+`/setup` again: no restart, no file to edit. While it is in more than one
+server it keeps its commands off everywhere and says so in the new server.
+
+To pin it to one server instead, set `guild_id` in `config.toml`: in Discord
+turn on **User Settings → Advanced → Developer Mode**, right-click the server
+and **Copy Server ID**. The bot then ignores every other server.
 
 ## 3. Bot host
 
@@ -206,7 +212,7 @@ ssh -i secrets/id_ed25519 -o UserKnownHostsFile=secrets/known_hosts mcbot@<minec
 cp config.example.toml config.toml
 ```
 
-Fill in `guild_id`, the two `host` values and the server names you want to
+Fill in the two `host` values and the server names you want to
 show (`[server.names]`). Leave the paths as they are: they are the paths
 inside the container. Every option is described in
 [`config.example.toml`](config.example.toml).

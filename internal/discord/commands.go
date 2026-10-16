@@ -63,6 +63,8 @@ const (
 	msgExpired   = "Tempo scaduto: lancia di nuovo il comando."
 	msgStopFirst = "Spegni prima il server."
 	msgFailed    = "Qualcosa è andato storto. Controlla i log del bot."
+
+	msgWrongGuild = "Su questo server Discord i miei comandi non sono attivi."
 )
 
 // Custom IDs of the buttons and menus: action|user ID|expiry (unix)|argument.
@@ -74,6 +76,11 @@ const (
 
 func (b *Bot) handle(i *discordgo.Interaction) {
 	user := userOf(i)
+	if i.GuildID == "" || i.GuildID != b.activeGuild() {
+		slog.Warn("interaction from an inactive guild", "guild_id", i.GuildID, "user_id", user.ID)
+		b.reply(i, msgWrongGuild, true)
+		return
+	}
 	switch i.Type {
 	case discordgo.InteractionApplicationCommand:
 		name := i.ApplicationCommandData().Name

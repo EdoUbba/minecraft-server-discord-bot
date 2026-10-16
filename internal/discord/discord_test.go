@@ -42,7 +42,16 @@ func (f *fakeServer) Players(context.Context) ([]string, error) {
 type fakeSession struct {
 	responses []*discordgo.InteractionResponse
 	presences []string
-	sent      []string // channel IDs of sent messages
+	sent      []string       // channel IDs of sent messages
+	commands  map[string]int // guild ID -> number of registered commands
+}
+
+func (f *fakeSession) ApplicationCommandBulkOverwrite(_, guildID string, cmds []*discordgo.ApplicationCommand, _ ...discordgo.RequestOption) ([]*discordgo.ApplicationCommand, error) {
+	if f.commands == nil {
+		f.commands = map[string]int{}
+	}
+	f.commands[guildID] = len(cmds)
+	return cmds, nil
 }
 
 func (f *fakeSession) InteractionRespond(_ *discordgo.Interaction, r *discordgo.InteractionResponse, _ ...discordgo.RequestOption) error {
@@ -78,9 +87,10 @@ func newTestBot(snap monitor.Snapshot) (*Bot, *fakeServer, *fakeSession) {
 
 func command(name string, member *discordgo.Member) *discordgo.Interaction {
 	return &discordgo.Interaction{
-		Type:   discordgo.InteractionApplicationCommand,
-		Data:   discordgo.ApplicationCommandInteractionData{Name: name},
-		Member: member,
+		Type:    discordgo.InteractionApplicationCommand,
+		Data:    discordgo.ApplicationCommandInteractionData{Name: name},
+		Member:  member,
+		GuildID: "guild",
 	}
 }
 
@@ -164,9 +174,10 @@ func TestStopAsksConfirmationWithPlayers(t *testing.T) {
 	press := func(user string, at time.Time) {
 		b.now = func() time.Time { return at }
 		b.handle(&discordgo.Interaction{
-			Type:   discordgo.InteractionMessageComponent,
-			Data:   discordgo.MessageComponentInteractionData{CustomID: id},
-			Member: &discordgo.Member{User: &discordgo.User{ID: user}, Permissions: discordgo.PermissionAdministrator},
+			Type:    discordgo.InteractionMessageComponent,
+			Data:    discordgo.MessageComponentInteractionData{CustomID: id},
+			Member:  &discordgo.Member{User: &discordgo.User{ID: user}, Permissions: discordgo.PermissionAdministrator},
+			GuildID: "guild",
 		})
 	}
 	press("7", now) // someone else
@@ -267,5 +278,72 @@ func TestWelcomeOnlyOnNewJoin(t *testing.T) {
 	b.welcome(&discordgo.Guild{ID: "guild", SystemChannelID: "general", JoinedAt: now.Add(-5 * time.Second)})
 	if len(s.sent) != 1 || s.sent[0] != "general" {
 		t.Fatalf("messages sent to %v, want a welcome in general", s.sent)
+	}
+}
+
+func guilds(ids ...string) []*discordgo.Guild {
+	var gs []*discordgo.Guild
+	for _, id := range ids {
+		gs = append(gs, &discordgo.Guild{ID: id})
+	}
+	return gs
+}
+
+func TestAutoGuildFollowsTheOnlyGuild(t *testing.T) {
+	b, _, s := newTestBot(monitor.Snapshot{})
+	b.opts.GuildID, b.active = "", ""
+
+	b.ready("app", guilds("old"))
+	if b.activeGuild() != "old" || s.commands["old"] != len(commands) {
+		t.Fatalf("one guild: active = %q, commands = %v", b.activeGuild(), s.commands)
+	}
+
+	b.joined("new")
+	if b.activeGuild() != "" || s.commands["old"] != 0 || s.commands["new"] != 0 {
+		t.Fatalf("two guilds: active = %q, commands = %v, want none anywhere", b.activeGuild(), s.commands)
+	}
+
+	b.left("old")
+	if b.activeGuild() != "new" || s.commands["new"] != len(commands) {
+		t.Fatalf("old guild left: active = %q, commands = %v", b.activeGuild(), s.commands)
+	}
+}
+
+func TestConfiguredGuildIgnoresOthers(t *testing.T) {
+	b, _, s := newTestBot(monitor.Snapshot{})
+	b.ready("app", guilds("guild", "other"))
+	b.joined("third")
+	b.left("guild")
+	if b.activeGuild() != "guild" || s.commands["guild"] != len(commands) || len(s.commands) != 1 {
+		t.Fatalf("active = %q, commands = %v, want only the configured guild", b.activeGuild(), s.commands)
+	}
+}
+
+func TestInteractionFromInactiveGuildIsRefused(t *testing.T) {
+	b, srv, s := newTestBot(monitor.Snapshot{State: monitor.Off, Server: "survival"})
+	i := command("startserver", member(discordgo.PermissionAdministrator))
+	i.GuildID = "other"
+	b.handle(i)
+	if len(srv.calls) != 0 {
+		t.Fatalf("server calls = %v, want none", srv.calls)
+	}
+	if len(s.responses) != 1 || s.responses[0].Data.Content != msgWrongGuild {
+		t.Fatalf("responses = %+v, want the wrong guild refusal", s.responses)
+	}
+}
+
+func TestSettingsOfAnotherGuildAreIgnored(t *testing.T) {
+	b, _, _ := newTestBot(monitor.Snapshot{})
+	b.opts.SettingsFile = filepath.Join(t.TempDir(), "settings.json")
+	b.handle(setupCommand(member(discordgo.PermissionAdministrator)))
+
+	b2, _, _ := newTestBot(monitor.Snapshot{})
+	b2.opts.SettingsFile, b2.opts.GuildID, b2.active = b.opts.SettingsFile, "", ""
+	if err := b2.loadSettings(); err != nil {
+		t.Fatal(err)
+	}
+	b2.ready("app", guilds("elsewhere"))
+	if b2.operatorRole() != "" || b2.logChannel() != "" {
+		t.Fatalf("settings of another guild used: role %q, channel %q", b2.operatorRole(), b2.logChannel())
 	}
 }

@@ -32,10 +32,11 @@ type session interface {
 	InteractionResponseEdit(i *discordgo.Interaction, e *discordgo.WebhookEdit, options ...discordgo.RequestOption) (*discordgo.Message, error)
 	ChannelMessageSendComplex(channelID string, m *discordgo.MessageSend, options ...discordgo.RequestOption) (*discordgo.Message, error)
 	UpdateStatusComplex(data discordgo.UpdateStatusData) error
+	ApplicationCommandBulkOverwrite(appID, guildID string, commands []*discordgo.ApplicationCommand, options ...discordgo.RequestOption) ([]*discordgo.ApplicationCommand, error)
 }
 
 type Options struct {
-	GuildID        string
+	GuildID        string // empty = the only guild the bot is in
 	OperatorRoleID string // empty = only administrators are operators
 	LogChannelID   string // empty = log channel disabled
 	SettingsFile   string // written by /setup; overrides the two IDs above
@@ -60,16 +61,23 @@ type Bot struct {
 
 	settingsMu sync.Mutex
 	settings   settings
+
+	guildMu sync.Mutex // also held while the commands are registered
+	appID   string
+	guilds  map[string]bool // guilds the bot is in
+	active  string          // guild where the commands work; empty = none
 }
 
 func New(srv Server, opts Options) *Bot {
 	return &Bot{
-		srv:  srv,
-		opts: opts,
-		ctx:  context.Background(),
-		now:  time.Now,
-		logs: make(chan string, 32),
-		kick: make(chan struct{}, 1),
+		srv:    srv,
+		opts:   opts,
+		ctx:    context.Background(),
+		now:    time.Now,
+		logs:   make(chan string, 32),
+		kick:   make(chan struct{}, 1),
+		guilds: map[string]bool{},
+		active: opts.GuildID,
 		settings: settings{
 			OperatorRoleID: opts.OperatorRoleID,
 			LogChannelID:   opts.LogChannelID,
@@ -96,9 +104,7 @@ func (b *Bot) Run(ctx context.Context, token string) error {
 		if r.Application != nil {
 			appID = r.Application.ID
 		}
-		if _, err := s.ApplicationCommandBulkOverwrite(appID, b.opts.GuildID, commands); err != nil {
-			slog.Error("register slash commands", "error", err)
-		}
+		b.ready(appID, r.Guilds)
 		// A new gateway session starts with no presence.
 		b.presenceMu.Lock()
 		b.presence = ""
@@ -107,7 +113,16 @@ func (b *Bot) Run(ctx context.Context, token string) error {
 		slog.Info("connected to discord", "user", r.User.Username)
 	})
 	s.AddHandler(func(_ *discordgo.Session, g *discordgo.GuildCreate) {
+		if !g.Unavailable {
+			b.joined(g.ID)
+		}
 		b.welcome(g.Guild)
+	})
+	s.AddHandler(func(_ *discordgo.Session, g *discordgo.GuildDelete) {
+		// Unavailable means a Discord outage, not that the bot was removed.
+		if !g.Unavailable {
+			b.left(g.ID)
+		}
 	})
 	s.AddHandler(func(_ *discordgo.Session, i *discordgo.InteractionCreate) {
 		b.handle(i.Interaction)

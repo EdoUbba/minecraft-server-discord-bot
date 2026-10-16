@@ -14,23 +14,29 @@ import (
 )
 
 // settings are the values chosen with /setup. They override the operator
-// role and the log channel of config.toml.
+// role and the log channel of config.toml. Role and channel IDs exist only
+// in the guild they were chosen on, so on any other guild they are ignored.
 type settings struct {
+	GuildID        string `json:"guild_id"`
 	OperatorRoleID string `json:"operator_role_id"`
 	LogChannelID   string `json:"log_channel_id"`
 }
 
-func (b *Bot) operatorRole() string {
+// current returns the settings if they belong to the active guild, or
+// empty ones: only administrators are operators and the log is off.
+func (b *Bot) current() settings {
+	active := b.activeGuild()
 	b.settingsMu.Lock()
 	defer b.settingsMu.Unlock()
-	return b.settings.OperatorRoleID
+	if b.settings.GuildID != "" && b.settings.GuildID != active {
+		return settings{}
+	}
+	return b.settings
 }
 
-func (b *Bot) logChannel() string {
-	b.settingsMu.Lock()
-	defer b.settingsMu.Unlock()
-	return b.settings.LogChannelID
-}
+func (b *Bot) operatorRole() string { return b.current().OperatorRoleID }
+
+func (b *Bot) logChannel() string { return b.current().LogChannelID }
 
 // loadSettings reads the settings file, if /setup has written one.
 func (b *Bot) loadSettings() error {
@@ -86,9 +92,8 @@ func (b *Bot) setup(i *discordgo.Interaction) {
 		return
 	}
 
-	b.settingsMu.Lock()
-	s := b.settings
-	b.settingsMu.Unlock()
+	s := b.current()
+	s.GuildID = b.activeGuild()
 	changed := false
 	for _, o := range i.ApplicationCommandData().Options {
 		switch o.Name {
@@ -152,10 +157,15 @@ func (b *Bot) welcome(g *discordgo.Guild) {
 	}
 	text := "👋 Ciao! Controllo il server Minecraft.\n" +
 		"Un amministratore può usare `/setup` per scegliere il ruolo operatore e il canale di log."
-	if g.ID != b.opts.GuildID {
+	switch {
+	case g.ID == b.activeGuild():
+	case b.opts.GuildID != "":
 		text = "👋 Ciao! I miei comandi sono attivi solo sul server Discord indicato in `guild_id` " +
 			"nel file di configurazione, e non è questo."
 		slog.Warn("joined a guild that is not the configured one", "guild_id", g.ID)
+	default:
+		text = "👋 Ciao! Sono già su un altro server Discord, e lavoro su un server alla volta.\n" +
+			"Toglimi da lì e i miei comandi passeranno qui; poi un amministratore può usare `/setup`."
 	}
 	if _, err := b.s.ChannelMessageSendComplex(g.SystemChannelID, &discordgo.MessageSend{Content: text, AllowedMentions: noMentions}); err != nil {
 		slog.Warn("send welcome message", "error", err)

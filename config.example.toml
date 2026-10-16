@@ -3,7 +3,7 @@
 
 [discord]
 token = ""                     # or the DISCORD_TOKEN environment variable
-guild_id = ""                  # Discord server where the commands are registered
+guild_id = ""                  # optional: empty = the only Discord server the bot is in (turn off "Public Bot")
 operator_role_id = ""          # optional: members with this role are operators (administrators always are)
 log_channel_id = ""            # optional: empty = log channel disabled
 settings_file = "data/settings.json"  # written by /setup; its values override the two IDs above

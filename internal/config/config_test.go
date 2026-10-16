@@ -176,7 +176,6 @@ func TestParseMissingRequiredFields(t *testing.T) {
 		want string
 	}{
 		{"token", "discord.token"},
-		{"guild_id", "discord.guild_id"},
 		{"user", "ssh.user"},
 		{"key_path", "ssh.key_path"},
 		{"known_hosts", "ssh.known_hosts"},
@@ -208,12 +207,12 @@ func TestParseMissingHosts(t *testing.T) {
 
 func TestParseReportsAllErrors(t *testing.T) {
 	data := replaceLine(t, validConfig, "token", `token = ""`)
-	data = replaceLine(t, data, "guild_id", `guild_id = ""`)
+	data = replaceLine(t, data, "rcon_password", `rcon_password = ""`)
 	_, err := parse([]byte(data), noEnv)
 	if err == nil {
 		t.Fatal("expected an error")
 	}
-	if !strings.Contains(err.Error(), "discord.token") || !strings.Contains(err.Error(), "discord.guild_id") {
+	if !strings.Contains(err.Error(), "discord.token") || !strings.Contains(err.Error(), "server.rcon_password") {
 		t.Errorf("error should list every problem, got %q", err)
 	}
 }
@@ -334,5 +333,12 @@ func TestExampleConfigParses(t *testing.T) {
 	env := envOf(map[string]string{EnvDiscordToken: "t", EnvRCONPassword: "p"})
 	if _, err := parse([]byte(text), env); err != nil {
 		t.Fatalf("config.example.toml is not valid: %v", err)
+	}
+}
+
+func TestParseEmptyGuildID(t *testing.T) {
+	data := replaceLine(t, validConfig, "guild_id", `guild_id = ""`)
+	if _, err := parse([]byte(data), noEnv); err != nil {
+		t.Fatalf("empty guild_id should be valid: %v", err)
 	}
 }

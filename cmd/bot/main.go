@@ -33,7 +33,11 @@ func run() int {
 		logger.Error("failed to load configuration", "error", err)
 		return 1
 	}
-	logger.Info("configuration loaded", "guild_id", cfg.Discord.GuildID)
+	guild := cfg.Discord.GuildID
+	if guild == "" {
+		guild = "auto"
+	}
+	logger.Info("configuration loaded", "guild_id", guild)
 
 	ctl, err := control.New(cfg.SSH.Host, cfg.SSH.Port, cfg.SSH.User, cfg.SSH.KeyPath, cfg.SSH.KnownHosts)
 	if err != nil {
