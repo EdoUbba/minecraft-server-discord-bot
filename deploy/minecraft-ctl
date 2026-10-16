@@ -13,13 +13,16 @@
 #   status         ActiveState, ActiveEnterTimestamp (@unix seconds) and
 #                  Server, one key=value per line
 #   list           the names of the available servers, one per line
-#   select <name>  point the active server link at /opt/mc/<name>; refused
+#   select <name>  point the active server link at $BASE/<name>; refused
 #                  while the service is running
 #
 # Anything else exits with an error. Errors go to stderr, one line.
 
 set -euo pipefail
 
+# The folder that holds the servers, one subfolder each: set it to where your
+# servers already live. Every direct subfolder with start.sh or startserver.sh
+# can be selected, so keep unrelated folders out of it.
 BASE=/opt/mc
 STATE=/var/lib/minecraft-ctl
 SERVICE=minecraft.service
