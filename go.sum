@@ -1,2 +1,6 @@
+github.com/gorcon/rcon v1.4.0 h1:pYwZ8Rhcgfh/LhdPBncecuEo5thoFvPIuMSWovz1FME=
+github.com/gorcon/rcon v1.4.0/go.mod h1:M6v6sNmr/NET9YIf+2rq+cIjTBridoy62uzQ58WgC1I=
+github.com/mcstatus-io/mcutil/v4 v4.3.1 h1:OvuZfl8p4R2xUv7GuC8cF1UnxaePUFGA40NjC2JDGBk=
+github.com/mcstatus-io/mcutil/v4 v4.3.1/go.mod h1:PGyTrx9UNvWVDHxbYQT89es9AWPkv5pAc6BAlFHm4fU=
 github.com/pelletier/go-toml/v2 v2.4.3 h1:GTRvJQutkOSftxIFD5xw9aepkYNuPWmVJpffdDPYVpY=
 github.com/pelletier/go-toml/v2 v2.4.3/go.mod h1:2gIqNv+qfxSVS7cM2xJQKtLSTLUE9V8t9Stt+h56mCY=
