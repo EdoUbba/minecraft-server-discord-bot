@@ -28,7 +28,7 @@ func TestLiveServer(t *testing.T) {
 
 	st, err := NewPinger(host, port).Ping(ctx)
 	if err != nil {
-		t.Fatalf("ping: %v", err)
+		t.Fatal(err)
 	}
 	t.Logf("ping: version %q, %d/%d players online", st.Version, st.OnlinePlayers, st.MaxPlayers)
 
@@ -39,7 +39,7 @@ func TestLiveServer(t *testing.T) {
 	}
 	players, err := NewRCON(host, rconPort, password).ListPlayers(ctx)
 	if err != nil {
-		t.Fatalf("rcon list: %v", err)
+		t.Fatal(err)
 	}
 	t.Logf("rcon list: %d players %q", len(players), players)
 	if len(players) != st.OnlinePlayers {
