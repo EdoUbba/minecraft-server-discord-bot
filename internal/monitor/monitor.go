@@ -50,6 +50,7 @@ const (
 	EventCrashed                       // the service stopped while the server was online
 	EventUnresponsive                  // the ping fails but the service is still active
 	EventAutostop                      // the server was empty for too long; a stop follows
+	EventHangStop                      // the server stayed unresponsive; a stop follows
 )
 
 type Event struct {
@@ -71,6 +72,10 @@ var ErrState = errors.New("action not allowed in the current state")
 
 // stopPoll is how often the stop flow checks the service with SSH.
 const stopPoll = 5 * time.Second
+
+// hangGrace is how long a server that stops answering while online gets
+// before it is stopped, so a short lag spike does not stop it.
+const hangGrace = 30 * time.Second
 
 // stopMessage is announced to the players before a stop.
 const stopMessage = "Il server si sta spegnendo."
@@ -342,7 +347,32 @@ func (m *Monitor) pingFailed(ctx context.Context, state State, pingErr error) {
 		} else {
 			slog.Warn("server not responding", "ping_error", pingErr, "status_error", err)
 			m.notify(EventUnresponsive)
+			m.stopIfStillHanging(ctx)
 		}
+	}
+}
+
+// stopIfStillHanging pings again after hangGrace and runs the stop flow if
+// the server still does not answer. A hung server only gets a clean stop
+// this way; it is never restarted.
+func (m *Monitor) stopIfStillHanging(ctx context.Context) {
+	if err := m.sleep(ctx, hangGrace); err != nil {
+		return
+	}
+	if _, err := m.ping.Ping(ctx); err == nil {
+		return // the next tick brings it back online
+	}
+	m.mu.Lock()
+	if m.state != Unresponsive { // a Stop ran during the grace period
+		m.mu.Unlock()
+		return
+	}
+	m.state = Stopping
+	m.mu.Unlock()
+
+	m.notify(EventHangStop)
+	if err := m.stop(ctx); err != nil {
+		slog.Error("stop of the unresponsive server failed", "error", err)
 	}
 }
 

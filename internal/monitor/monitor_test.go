@@ -267,15 +267,40 @@ func TestCrash(t *testing.T) {
 	}
 }
 
-func TestHangingServerIsUnresponsive(t *testing.T) {
+func TestHangingServerIsStopped(t *testing.T) {
 	h := newHarness(t)
 	h.online()
+	h.ctl.active = "active"
 	h.ping.err = errNoAnswer
+	start := h.clock
+	h.tick()
+	h.wantState(Off)
+	h.wantEvents(EventUnresponsive, EventHangStop, EventStopped)
+	if !slices.Equal(h.rcon.calls, []string{"say", "stop"}) || h.ctl.calls[len(h.ctl.calls)-1] != "stop" {
+		t.Fatalf("rcon calls = %v, ssh calls = %v, want the full stop flow", h.rcon.calls, h.ctl.calls)
+	}
+	if slices.Contains(h.ctl.calls, "start") {
+		t.Fatalf("ssh calls = %v, want no restart", h.ctl.calls)
+	}
+	// One interval, the grace period, then the stop timeout.
+	if waited := h.clock.Sub(start); waited != time.Minute+hangGrace+90*time.Second {
+		t.Fatalf("stopped after %v", waited)
+	}
+}
+
+func TestHangingServerRecoversDuringGrace(t *testing.T) {
+	h := newHarness(t)
+	h.online()
+	h.ctl.active = "active"
+	h.ping.err = errNoAnswer
+	h.m.sleep = func(context.Context, time.Duration) error { h.ping.err = nil; return nil }
 	h.tick()
 	h.wantState(Unresponsive)
 	h.wantEvents(EventUnresponsive)
+	if len(h.rcon.calls) != 0 {
+		t.Fatalf("rcon calls = %v, want no stop", h.rcon.calls)
+	}
 
-	h.ping.err = nil
 	h.tick()
 	h.wantState(Online)
 }
