@@ -2,6 +2,7 @@ package discord
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -41,6 +42,7 @@ func (f *fakeServer) Players(context.Context) ([]string, error) {
 type fakeSession struct {
 	responses []*discordgo.InteractionResponse
 	presences []string
+	sent      []string // channel IDs of sent messages
 }
 
 func (f *fakeSession) InteractionRespond(_ *discordgo.Interaction, r *discordgo.InteractionResponse, _ ...discordgo.RequestOption) error {
@@ -50,7 +52,8 @@ func (f *fakeSession) InteractionRespond(_ *discordgo.Interaction, r *discordgo.
 func (f *fakeSession) InteractionResponseEdit(*discordgo.Interaction, *discordgo.WebhookEdit, ...discordgo.RequestOption) (*discordgo.Message, error) {
 	return &discordgo.Message{}, nil
 }
-func (f *fakeSession) ChannelMessageSendComplex(string, *discordgo.MessageSend, ...discordgo.RequestOption) (*discordgo.Message, error) {
+func (f *fakeSession) ChannelMessageSendComplex(channelID string, _ *discordgo.MessageSend, _ ...discordgo.RequestOption) (*discordgo.Message, error) {
+	f.sent = append(f.sent, channelID)
 	return &discordgo.Message{}, nil
 }
 func (f *fakeSession) UpdateStatusComplex(d discordgo.UpdateStatusData) error {
@@ -63,6 +66,7 @@ var now = time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 func newTestBot(snap monitor.Snapshot) (*Bot, *fakeServer, *fakeSession) {
 	srv, s := &fakeServer{snap: snap}, &fakeSession{}
 	b := New(srv, Options{
+		GuildID:        "guild",
 		OperatorRoleID: "op",
 		LogChannelID:   "logs",
 		Interval:       time.Minute,
@@ -194,5 +198,74 @@ func TestPresenceOnlyWhenTextChanges(t *testing.T) {
 		if s.presences[n] != want[n] {
 			t.Fatalf("presences = %q, want %q", s.presences, want)
 		}
+	}
+}
+
+func setupCommand(member *discordgo.Member) *discordgo.Interaction {
+	i := command("setup", member)
+	i.Data = discordgo.ApplicationCommandInteractionData{Name: "setup", Options: []*discordgo.ApplicationCommandInteractionDataOption{
+		{Name: "ruolo", Type: discordgo.ApplicationCommandOptionRole, Value: "newrole"},
+		{Name: "canale", Type: discordgo.ApplicationCommandOptionChannel, Value: "newchannel"},
+	}}
+	return i
+}
+
+func TestSetupOnlyForAdministrators(t *testing.T) {
+	b, _, s := newTestBot(monitor.Snapshot{})
+	b.opts.SettingsFile = filepath.Join(t.TempDir(), "settings.json")
+	b.handle(setupCommand(member(0, "op"))) // an operator, not an administrator
+	if b.operatorRole() != "op" || b.logChannel() != "logs" {
+		t.Fatalf("settings changed by an operator: %+v", b.settings)
+	}
+	if len(s.responses) != 1 || s.responses[0].Data.Flags&discordgo.MessageFlagsEphemeral == 0 {
+		t.Fatalf("want one ephemeral refusal, got %+v", s.responses)
+	}
+}
+
+func TestSetupSavesAndReloads(t *testing.T) {
+	b, _, s := newTestBot(monitor.Snapshot{})
+	b.opts.SettingsFile = filepath.Join(t.TempDir(), "data", "settings.json")
+	b.handle(setupCommand(member(discordgo.PermissionAdministrator)))
+	if b.operatorRole() != "newrole" || b.logChannel() != "newchannel" {
+		t.Fatalf("settings = %+v", b.settings)
+	}
+	if len(s.sent) != 1 || s.sent[0] != "newchannel" {
+		t.Fatalf("messages sent to %v, want a test message in the new channel", s.sent)
+	}
+	if !isOperator(member(0, "newrole"), b.operatorRole()) {
+		t.Fatal("the new role is not an operator")
+	}
+
+	// A restart reads the file instead of config.toml.
+	b2, _, _ := newTestBot(monitor.Snapshot{})
+	b2.opts.SettingsFile = b.opts.SettingsFile
+	if err := b2.loadSettings(); err != nil {
+		t.Fatal(err)
+	}
+	if b2.operatorRole() != "newrole" || b2.logChannel() != "newchannel" {
+		t.Fatalf("reloaded settings = %+v", b2.settings)
+	}
+}
+
+func TestLoadSettingsWithoutFile(t *testing.T) {
+	b, _, _ := newTestBot(monitor.Snapshot{})
+	b.opts.SettingsFile = filepath.Join(t.TempDir(), "missing.json")
+	if err := b.loadSettings(); err != nil {
+		t.Fatal(err)
+	}
+	if b.operatorRole() != "op" || b.logChannel() != "logs" {
+		t.Fatalf("settings = %+v, want the config.toml values", b.settings)
+	}
+}
+
+func TestWelcomeOnlyOnNewJoin(t *testing.T) {
+	b, _, s := newTestBot(monitor.Snapshot{})
+	b.welcome(&discordgo.Guild{ID: "guild", SystemChannelID: "general", JoinedAt: now.Add(-24 * time.Hour)})
+	if len(s.sent) != 0 {
+		t.Fatalf("welcomed a guild joined yesterday: %v", s.sent)
+	}
+	b.welcome(&discordgo.Guild{ID: "guild", SystemChannelID: "general", JoinedAt: now.Add(-5 * time.Second)})
+	if len(s.sent) != 1 || s.sent[0] != "general" {
+		t.Fatalf("messages sent to %v, want a welcome in general", s.sent)
 	}
 }

@@ -1,6 +1,7 @@
 # Installation-specific configuration and secrets
 config.toml
 secrets/
+data/
 .env
 
 # Build output

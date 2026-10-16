@@ -126,6 +126,9 @@ rcon_password = "p"
 	if !cfg.Autostop.Enabled || cfg.Autostop.EmptyMinutes != 10 {
 		t.Errorf("default autostop = %+v", cfg.Autostop)
 	}
+	if cfg.Discord.SettingsFile != "data/settings.json" {
+		t.Errorf("default settings file = %q", cfg.Discord.SettingsFile)
+	}
 	if cfg.Discord.OperatorRoleID != "" || cfg.Discord.LogChannelID != "" {
 		t.Errorf("optional IDs should stay empty")
 	}

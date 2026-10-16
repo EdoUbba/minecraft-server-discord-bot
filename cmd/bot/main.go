@@ -63,6 +63,7 @@ func run() int {
 		GuildID:        cfg.Discord.GuildID,
 		OperatorRoleID: cfg.Discord.OperatorRoleID,
 		LogChannelID:   cfg.Discord.LogChannelID,
+		SettingsFile:   cfg.Discord.SettingsFile,
 		Interval:       cfg.Status.Interval.Std(),
 		EmptyTimeout:   emptyTimeout,
 		DisplayName:    cfg.Server.DisplayName,

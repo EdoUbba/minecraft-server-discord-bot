@@ -34,6 +34,8 @@ type Discord struct {
 	GuildID        string `toml:"guild_id"`
 	OperatorRoleID string `toml:"operator_role_id"` // empty = only administrators are operators
 	LogChannelID   string `toml:"log_channel_id"`   // empty = log channel disabled
+	// SettingsFile keeps what /setup chooses; it overrides the two IDs above.
+	SettingsFile string `toml:"settings_file"`
 }
 
 type SSH struct {
@@ -80,7 +82,8 @@ func (a Autostop) EmptyTimeout() time.Duration {
 
 func defaults() Config {
 	return Config{
-		SSH: SSH{Port: 22},
+		Discord: Discord{SettingsFile: "data/settings.json"},
+		SSH:     SSH{Port: 22},
 		Server: Server{
 			Port:         25565,
 			RCONPort:     25575,
@@ -145,6 +148,7 @@ func (c *Config) validate() error {
 	checkSnowflake(fail, "discord.guild_id", c.Discord.GuildID)
 	checkSnowflake(fail, "discord.operator_role_id", c.Discord.OperatorRoleID)
 	checkSnowflake(fail, "discord.log_channel_id", c.Discord.LogChannelID)
+	required("discord.settings_file", c.Discord.SettingsFile)
 
 	required("ssh.host", c.SSH.Host)
 	checkPort(fail, "ssh.port", c.SSH.Port)

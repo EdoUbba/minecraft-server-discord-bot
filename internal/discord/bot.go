@@ -38,6 +38,7 @@ type Options struct {
 	GuildID        string
 	OperatorRoleID string // empty = only administrators are operators
 	LogChannelID   string // empty = log channel disabled
+	SettingsFile   string // written by /setup; overrides the two IDs above
 	Interval       time.Duration
 	EmptyTimeout   time.Duration // shown in the automatic stop message
 	DisplayName    func(folder string) string
@@ -56,6 +57,9 @@ type Bot struct {
 
 	presenceMu sync.Mutex
 	presence   string // last text sent to Discord
+
+	settingsMu sync.Mutex
+	settings   settings
 }
 
 func New(srv Server, opts Options) *Bot {
@@ -66,12 +70,19 @@ func New(srv Server, opts Options) *Bot {
 		now:  time.Now,
 		logs: make(chan string, 32),
 		kick: make(chan struct{}, 1),
+		settings: settings{
+			OperatorRoleID: opts.OperatorRoleID,
+			LogChannelID:   opts.LogChannelID,
+		},
 	}
 }
 
 // Run connects to Discord, registers the commands on the guild and serves
 // until ctx ends.
 func (b *Bot) Run(ctx context.Context, token string) error {
+	if err := b.loadSettings(); err != nil {
+		return err
+	}
 	s, err := discordgo.New("Bot " + token)
 	if err != nil {
 		return fmt.Errorf("discord session: %w", err)
@@ -94,6 +105,9 @@ func (b *Bot) Run(ctx context.Context, token string) error {
 		b.presenceMu.Unlock()
 		b.kickPresence()
 		slog.Info("connected to discord", "user", r.User.Username)
+	})
+	s.AddHandler(func(_ *discordgo.Session, g *discordgo.GuildCreate) {
+		b.welcome(g.Guild)
 	})
 	s.AddHandler(func(_ *discordgo.Session, i *discordgo.InteractionCreate) {
 		b.handle(i.Interaction)
@@ -154,7 +168,7 @@ func (b *Bot) audit(user *discordgo.User, action, text string) {
 }
 
 func (b *Bot) queueLog(text string) {
-	if b.opts.LogChannelID == "" {
+	if b.logChannel() == "" {
 		return
 	}
 	select {
@@ -165,7 +179,7 @@ func (b *Bot) queueLog(text string) {
 }
 
 func (b *Bot) sendLog(text string) {
-	_, err := b.s.ChannelMessageSendComplex(b.opts.LogChannelID, &discordgo.MessageSend{
+	_, err := b.s.ChannelMessageSendComplex(b.logChannel(), &discordgo.MessageSend{
 		Content:         text,
 		AllowedMentions: noMentions,
 	})

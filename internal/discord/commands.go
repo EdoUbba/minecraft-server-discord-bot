@@ -36,7 +36,22 @@ var commands = []*discordgo.ApplicationCommand{
 	{Name: "config", Description: "Sceglie quale server Minecraft attivare (solo operatori)"},
 	{Name: "status", Description: "Mostra lo stato del server Minecraft"},
 	{Name: "onlineplayer", Description: "Mostra i giocatori online"},
+	{
+		Name:                     "setup",
+		Description:              "Sceglie il ruolo operatore e il canale di log (solo amministratori)",
+		DefaultMemberPermissions: &adminOnly,
+		Options: []*discordgo.ApplicationCommandOption{
+			{Type: discordgo.ApplicationCommandOptionRole, Name: "ruolo", Description: "Chi ha questo ruolo può accendere, spegnere e cambiare il server"},
+			{
+				Type: discordgo.ApplicationCommandOptionChannel, Name: "canale", Description: "Dove il bot scrive il log",
+				ChannelTypes: []discordgo.ChannelType{discordgo.ChannelTypeGuildText},
+			},
+		},
+	},
 }
+
+// adminOnly hides /setup from everyone but administrators; setup checks again.
+var adminOnly = int64(discordgo.PermissionAdministrator)
 
 // noMentions keeps user mentions in bot messages from pinging anyone.
 var noMentions = &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{}}
@@ -74,6 +89,8 @@ func (b *Bot) handle(i *discordgo.Interaction) {
 			b.status(i)
 		case "onlineplayer":
 			b.onlinePlayers(i)
+		case "setup":
+			b.setup(i)
 		default:
 			slog.Warn("unknown command", "name", name)
 		}
@@ -87,7 +104,7 @@ func (b *Bot) handle(i *discordgo.Interaction) {
 // operator answers with an ephemeral refusal, and records the attempt, if
 // the user is not an operator. It runs before any SSH or RCON call.
 func (b *Bot) operator(i *discordgo.Interaction, command string) bool {
-	if isOperator(i.Member, b.opts.OperatorRoleID) {
+	if isOperator(i.Member, b.operatorRole()) {
 		return true
 	}
 	user := userOf(i)
