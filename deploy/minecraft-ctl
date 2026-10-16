@@ -1,0 +1,95 @@
+#!/bin/bash
+# minecraft-ctl: the only command the bot can run on the Minecraft LXC.
+#
+# Install as /usr/local/bin/minecraft-ctl (root:root, mode 755) and bind the
+# bot's key to it in ~mcbot/.ssh/authorized_keys:
+#
+#   command="/usr/local/bin/minecraft-ctl",no-pty,no-port-forwarding,no-agent-forwarding,no-X11-forwarding ssh-ed25519 AAAA... bot
+#
+# sshd passes the requested command in SSH_ORIGINAL_COMMAND. Accepted:
+#
+#   start          start minecraft.service
+#   stop           stop minecraft.service and wait until it has stopped
+#   status         ActiveState, ActiveEnterTimestamp (@unix seconds) and
+#                  Server, one key=value per line
+#   list           the names of the available servers, one per line
+#   select <name>  point the active server link at /opt/mc/<name>; refused
+#                  while the service is running
+#
+# Anything else exits with an error. Errors go to stderr, one line.
+
+set -euo pipefail
+
+BASE=/opt/mc
+STATE=/var/lib/minecraft-ctl
+SERVICE=minecraft.service
+SYSTEMCTL=/usr/bin/systemctl
+
+fail() {
+	echo "$1" >&2
+	exit 1
+}
+
+# A server is a direct subfolder of BASE, not a symlink, with a start script.
+# Names are restricted so they are safe as a single command argument.
+list_servers() {
+	local dir name
+	for dir in "$BASE"/*/; do
+		dir=${dir%/}
+		name=${dir##*/}
+		[[ -d $dir && ! -L $dir ]] || continue
+		[[ -f $dir/start.sh || -f $dir/startserver.sh ]] || continue
+		[[ $name =~ ^[A-Za-z0-9_][A-Za-z0-9._-]*$ ]] || continue
+		echo "$name"
+	done
+}
+
+current_server() {
+	local target
+	target=$(readlink "$STATE/current" 2>/dev/null) || return 0
+	echo "${target##*/}"
+}
+
+read -r cmd arg extra <<<"${SSH_ORIGINAL_COMMAND:-}" || true
+
+case $cmd in
+start | stop | status | list)
+	[[ -z $arg$extra ]] || fail "$cmd takes no arguments"
+	;;
+select)
+	[[ -z $extra ]] || fail "too many arguments"
+	;;
+esac
+
+case $cmd in
+start | stop)
+	sudo -n "$SYSTEMCTL" "$cmd" "$SERVICE" || fail "systemctl $cmd failed"
+	;;
+status)
+	"$SYSTEMCTL" show --property=ActiveState,ActiveEnterTimestamp --timestamp=unix "$SERVICE" ||
+		fail "systemctl show failed"
+	echo "Server=$(current_server)"
+	;;
+list)
+	list_servers
+	;;
+select)
+	[[ -n $arg ]] || fail "select needs a server name"
+	servers=$(list_servers)
+	grep -qxF -- "$arg" <<<"$servers" || fail "unknown server"
+	state=$("$SYSTEMCTL" show --property=ActiveState --value "$SERVICE") || fail "systemctl show failed"
+	case $state in
+	inactive | failed) ;;
+	*) fail "service is $state, stop it first" ;;
+	esac
+	# Replace the link atomically, so it is never missing or half written.
+	ln -sfn "$BASE/$arg" "$STATE/current.new"
+	mv -Tf "$STATE/current.new" "$STATE/current"
+	;;
+"")
+	fail "no command given"
+	;;
+*)
+	fail "unknown command"
+	;;
+esac

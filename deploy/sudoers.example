@@ -1,0 +1,3 @@
+# Lets mcbot start, stop and inspect minecraft.service, and nothing else.
+# Install with: visudo -f /etc/sudoers.d/minecraft-ctl
+mcbot ALL=(root) NOPASSWD: /usr/bin/systemctl start minecraft.service, /usr/bin/systemctl stop minecraft.service, /usr/bin/systemctl show minecraft.service

@@ -1,0 +1,20 @@
+# Install as /etc/systemd/system/minecraft.service, then run
+# "systemctl daemon-reload". Do not enable it: the bot starts and stops it.
+[Unit]
+Description=Minecraft server controlled by the Discord bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# The user that owns the server folders in /opt/mc, never root.
+User=minecraft
+# The active server, chosen with "minecraft-ctl select".
+WorkingDirectory=/var/lib/minecraft-ctl/current
+ExecStart=/bin/bash -c 'if [ -f start.sh ]; then exec /bin/bash start.sh; else exec /bin/bash startserver.sh; fi'
+# SIGINT is the same as Ctrl+C: Minecraft saves the worlds before exiting.
+KillSignal=SIGINT
+TimeoutStopSec=90
+Restart=no
+
+# No [Install] section, so the unit cannot be enabled at boot by mistake.
