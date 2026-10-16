@@ -19,6 +19,9 @@ WorkingDirectory=/var/lib/minecraft-ctl/current
 ExecStart=/bin/bash -c 'if [ -f start.sh ]; then exec /bin/bash start.sh; else exec /bin/bash startserver.sh; fi'
 # SIGINT is the same as Ctrl+C: Minecraft saves the worlds before exiting.
 KillSignal=SIGINT
+# Java exits with 130 after SIGINT: a clean stop, not a failure. A crash
+# still leaves the unit "failed", which is how the bot tells them apart.
+SuccessExitStatus=130
 TimeoutStopSec=90
 Restart=no
 
