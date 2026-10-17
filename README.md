@@ -11,7 +11,7 @@ shows who is online and keeps the server state in its own profile.
   stops answering is stopped cleanly. A crashed server is never restarted.
 - Every start, stop, server change and refused attempt goes to a log channel.
 
-The bot talks Italian to its users; the code and this guide are in English.
+The bot, the code and this guide are all in English.
 
 ## How it works
 

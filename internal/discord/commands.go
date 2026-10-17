@@ -31,19 +31,19 @@ const (
 // visible to everyone: Discord can hide a command only by permission, not by
 // role, which would hide it from operators too. The handlers check the role.
 var commands = []*discordgo.ApplicationCommand{
-	{Name: "startserver", Description: "Accende il server Minecraft (solo operatori)"},
-	{Name: "stopserver", Description: "Spegne il server Minecraft (solo operatori)"},
-	{Name: "config", Description: "Sceglie quale server Minecraft attivare (solo operatori)"},
-	{Name: "status", Description: "Mostra lo stato del server Minecraft"},
-	{Name: "onlineplayer", Description: "Mostra i giocatori online"},
+	{Name: "startserver", Description: "Start the Minecraft server (operators only)"},
+	{Name: "stopserver", Description: "Stop the Minecraft server (operators only)"},
+	{Name: "config", Description: "Choose which Minecraft server is active (operators only)"},
+	{Name: "status", Description: "Show the Minecraft server status"},
+	{Name: "onlineplayer", Description: "Show the online players"},
 	{
 		Name:                     "setup",
-		Description:              "Sceglie il ruolo operatore e il canale di log (solo amministratori)",
+		Description:              "Choose the operator role and the log channel (administrators only)",
 		DefaultMemberPermissions: &adminOnly,
 		Options: []*discordgo.ApplicationCommandOption{
-			{Type: discordgo.ApplicationCommandOptionRole, Name: "ruolo", Description: "Chi ha questo ruolo può accendere, spegnere e cambiare il server"},
+			{Type: discordgo.ApplicationCommandOptionRole, Name: "role", Description: "Members with this role can start, stop and switch the server"},
 			{
-				Type: discordgo.ApplicationCommandOptionChannel, Name: "canale", Description: "Dove il bot scrive il log",
+				Type: discordgo.ApplicationCommandOptionChannel, Name: "channel", Description: "Where the bot posts its log",
 				ChannelTypes: []discordgo.ChannelType{discordgo.ChannelTypeGuildText},
 			},
 		},
@@ -57,14 +57,14 @@ var adminOnly = int64(discordgo.PermissionAdministrator)
 var noMentions = &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{}}
 
 const (
-	msgDenied    = "Non hai i permessi per questo comando."
-	msgBusy      = "Operazione già in corso, riprova tra poco."
-	msgNotYours  = "Solo chi ha lanciato il comando può usarlo."
-	msgExpired   = "Tempo scaduto: lancia di nuovo il comando."
-	msgStopFirst = "Spegni prima il server."
-	msgFailed    = "Qualcosa è andato storto. Controlla i log del bot."
+	msgDenied    = "You do not have permission to use this command."
+	msgBusy      = "An operation is already in progress, try again shortly."
+	msgNotYours  = "Only the person who ran the command can use this."
+	msgExpired   = "Time is up: run the command again."
+	msgStopFirst = "Stop the server first."
+	msgFailed    = "Something went wrong. Check the bot logs."
 
-	msgWrongGuild = "Su questo server Discord i miei comandi non sono attivi."
+	msgWrongGuild = "My commands are not active on this Discord server."
 )
 
 // Custom IDs of the buttons and menus: action|user ID|expiry (unix)|argument.
@@ -115,7 +115,7 @@ func (b *Bot) operator(i *discordgo.Interaction, command string) bool {
 		return true
 	}
 	user := userOf(i)
-	b.audit(user, "denied "+command, fmt.Sprintf("🚫 <@%s> ha provato a usare %s senza permessi.", user.ID, command))
+	b.audit(user, "denied "+command, fmt.Sprintf("🚫 <@%s> tried to use %s without permission.", user.ID, command))
 	b.reply(i, msgDenied, true)
 	return false
 }
@@ -137,13 +137,13 @@ func (b *Bot) startServer(i *discordgo.Interaction) {
 	err := b.srv.Start(b.ctx)
 	switch {
 	case errors.Is(err, monitor.ErrState):
-		b.edit(i, "Il server non è spento.", nil)
+		b.edit(i, "The server is not off.", nil)
 	case err != nil:
 		slog.Error("start", "error", err)
 		b.edit(i, msgFailed, nil)
 	default:
-		b.audit(user, "start", fmt.Sprintf("▶️ <@%s> ha avviato **%s**.", user.ID, name))
-		b.edit(i, fmt.Sprintf("🟡 Avvio di **%s** in corso…", name), nil)
+		b.audit(user, "start", fmt.Sprintf("▶️ <@%s> started **%s**.", user.ID, name))
+		b.edit(i, fmt.Sprintf("🟡 Starting **%s**…", name), nil)
 		b.kickPresence()
 	}
 }
@@ -155,13 +155,13 @@ func (b *Bot) stopServer(i *discordgo.Interaction) {
 	snap := b.srv.Snapshot()
 	switch {
 	case snap.State == monitor.Off || snap.State == monitor.Stopping:
-		b.reply(i, "Il server è già spento o in spegnimento.", true)
+		b.reply(i, "The server is already off or stopping.", true)
 	case snap.Players > 0:
 		id := customID(actionStop, userOf(i).ID, b.now().Add(stopConfirmTTL), "")
 		b.respond(i, discordgo.InteractionResponseChannelMessageWithSource, &discordgo.InteractionResponseData{
-			Content: fmt.Sprintf("Ci sono %d giocatori online. Confermi lo spegnimento entro %d secondi?",
+			Content: fmt.Sprintf("There are %d players online. Confirm the shutdown within %d seconds?",
 				snap.Players, int(stopConfirmTTL.Seconds())),
-			Components: buttonRow(discordgo.Button{Label: "Spegni", Style: discordgo.DangerButton, CustomID: id}),
+			Components: buttonRow(discordgo.Button{Label: "Stop", Style: discordgo.DangerButton, CustomID: id}),
 			Flags:      discordgo.MessageFlagsEphemeral,
 		})
 	default:
@@ -182,19 +182,19 @@ func (b *Bot) runStop(i *discordgo.Interaction, ack discordgo.InteractionRespons
 	}
 
 	user, name := userOf(i), b.serverName()
-	b.audit(user, "stop", fmt.Sprintf("⏹️ <@%s> ha chiesto lo spegnimento di **%s**.", user.ID, name))
-	b.edit(i, fmt.Sprintf("🟠 Spegnimento di **%s** in corso…", name), &[]discordgo.MessageComponent{})
+	b.audit(user, "stop", fmt.Sprintf("⏹️ <@%s> asked to stop **%s**.", user.ID, name))
+	b.edit(i, fmt.Sprintf("🟠 Stopping **%s**…", name), &[]discordgo.MessageComponent{})
 	b.kickPresence()
 
 	err := b.srv.Stop(b.ctx)
 	switch {
 	case errors.Is(err, monitor.ErrState):
-		b.edit(i, "Il server è già spento o in spegnimento.", nil)
+		b.edit(i, "The server is already off or stopping.", nil)
 	case err != nil:
 		slog.Error("stop", "error", err)
 		b.edit(i, msgFailed, nil)
 	default:
-		b.edit(i, fmt.Sprintf("🔴 **%s** spento.", name), nil)
+		b.edit(i, fmt.Sprintf("🔴 **%s** stopped.", name), nil)
 	}
 }
 
@@ -217,7 +217,7 @@ func (b *Bot) config(i *discordgo.Interaction) {
 		return
 	}
 	if len(names) == 0 {
-		b.edit(i, "Nessun server disponibile.", nil)
+		b.edit(i, "No servers available.", nil)
 		return
 	}
 	if len(names) > maxSelectOptions {
@@ -242,10 +242,10 @@ func (b *Bot) config(i *discordgo.Interaction) {
 	}
 	menu := discordgo.SelectMenu{
 		CustomID:    customID(actionPick, user.ID, expiry, ""),
-		Placeholder: "Scegli un server",
+		Placeholder: "Choose a server",
 		Options:     options,
 	}
-	b.edit(i, fmt.Sprintf("Server attivo: **%s**. Quale vuoi attivare?", b.opts.DisplayName(snap.Server)),
+	b.edit(i, fmt.Sprintf("Active server: **%s**. Which one do you want to activate?", b.opts.DisplayName(snap.Server)),
 		&[]discordgo.MessageComponent{discordgo.ActionsRow{Components: []discordgo.MessageComponent{menu}}})
 }
 
@@ -255,23 +255,23 @@ func (b *Bot) status(i *discordgo.Interaction) {
 	var text string
 	switch s.State {
 	case monitor.Off:
-		text = fmt.Sprintf("🔴 **%s** · spento", name)
+		text = fmt.Sprintf("🔴 **%s** · off", name)
 	case monitor.Starting:
-		text = fmt.Sprintf("🟡 **%s** · avvio in corso", name)
+		text = fmt.Sprintf("🟡 **%s** · starting", name)
 	case monitor.Online:
-		text = fmt.Sprintf("🟢 **%s** · online da %s\nGiocatori: %d/%d · Versione: %s",
+		text = fmt.Sprintf("🟢 **%s** · online for %s\nPlayers: %d/%d · Version: %s",
 			name, formatDuration(b.now().Sub(s.Since)), s.Players, s.MaxPlayers, escape(s.Version))
 	case monitor.Stopping:
-		text = fmt.Sprintf("🟠 **%s** · spegnimento in corso", name)
+		text = fmt.Sprintf("🟠 **%s** · stopping", name)
 	case monitor.Unresponsive:
-		text = fmt.Sprintf("⚠️ **%s** · non risponde", name)
+		text = fmt.Sprintf("⚠️ **%s** · not responding", name)
 	}
 	b.reply(i, text, false)
 }
 
 func (b *Bot) onlinePlayers(i *discordgo.Interaction) {
 	if b.srv.Snapshot().State != monitor.Online {
-		b.reply(i, "Il server non è online.", true)
+		b.reply(i, "The server is not online.", true)
 		return
 	}
 	if !b.deferReply(i, false) {
@@ -280,18 +280,18 @@ func (b *Bot) onlinePlayers(i *discordgo.Interaction) {
 	players, err := b.srv.Players(b.ctx)
 	switch {
 	case errors.Is(err, monitor.ErrState):
-		b.edit(i, "Il server non è online.", nil)
+		b.edit(i, "The server is not online.", nil)
 	case err != nil:
 		slog.Error("list players", "error", err)
 		b.edit(i, msgFailed, nil)
 	case len(players) == 0:
-		b.edit(i, "Nessun giocatore online.", nil)
+		b.edit(i, "No players online.", nil)
 	default:
 		// shortcut: no split over 2000 characters, about 100 players; split if servers get that big.
 		for n, p := range players {
 			players[n] = escape(p)
 		}
-		b.edit(i, fmt.Sprintf("Giocatori online (%d): %s", len(players), strings.Join(players, ", ")), nil)
+		b.edit(i, fmt.Sprintf("Players online (%d): %s", len(players), strings.Join(players, ", ")), nil)
 	}
 }
 
@@ -336,9 +336,9 @@ func (b *Bot) component(i *discordgo.Interaction) {
 		}
 		folder := data.Values[0]
 		b.respond(i, discordgo.InteractionResponseUpdateMessage, &discordgo.InteractionResponseData{
-			Content: fmt.Sprintf("Attivare **%s**?", b.opts.DisplayName(folder)),
+			Content: fmt.Sprintf("Activate **%s**?", b.opts.DisplayName(folder)),
 			Components: buttonRow(discordgo.Button{
-				Label: "Conferma", Style: discordgo.PrimaryButton,
+				Label: "Confirm", Style: discordgo.PrimaryButton,
 				CustomID: customID(actionConfirm, owner, time.Unix(expiry, 0), folder),
 			}),
 		})
@@ -367,8 +367,8 @@ func (b *Bot) selectServer(i *discordgo.Interaction, folder string) {
 		b.edit(i, msgFailed, &[]discordgo.MessageComponent{})
 	default:
 		next := b.opts.DisplayName(folder)
-		b.audit(user, "select", fmt.Sprintf("🔁 <@%s> ha cambiato server: **%s** → **%s**.", user.ID, prev, next))
-		b.edit(i, fmt.Sprintf("✅ Server attivo: **%s**.", next), &[]discordgo.MessageComponent{})
+		b.audit(user, "select", fmt.Sprintf("🔁 <@%s> switched server: **%s** → **%s**.", user.ID, prev, next))
+		b.edit(i, fmt.Sprintf("✅ Active server: **%s**.", next), &[]discordgo.MessageComponent{})
 	}
 }
 

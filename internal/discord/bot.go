@@ -159,21 +159,21 @@ func (b *Bot) eventText(e monitor.Event) string {
 	name := b.opts.DisplayName(e.Server)
 	switch e.Kind {
 	case monitor.EventOnline:
-		return fmt.Sprintf("🟢 **%s** è online.", name)
+		return fmt.Sprintf("🟢 **%s** is online.", name)
 	case monitor.EventStartTimeout:
-		return fmt.Sprintf("⚠️ **%s** non risponde dopo l'avvio.", name)
+		return fmt.Sprintf("⚠️ **%s** is not responding after starting.", name)
 	case monitor.EventStopped:
-		return fmt.Sprintf("🔴 **%s** è spento.", name)
+		return fmt.Sprintf("🔴 **%s** is off.", name)
 	case monitor.EventCrashed:
-		return fmt.Sprintf("💥 **%s** si è fermato da solo (crash). Non verrà riavviato in automatico.", name)
+		return fmt.Sprintf("💥 **%s** stopped on its own (crash). It will not be restarted automatically.", name)
 	case monitor.EventUnresponsive:
-		return fmt.Sprintf("⚠️ **%s** non risponde.", name)
+		return fmt.Sprintf("⚠️ **%s** is not responding.", name)
 	case monitor.EventAutostop:
-		return fmt.Sprintf("⏹️ **%s** è vuoto da %s: spegnimento automatico.", name, formatDuration(b.opts.EmptyTimeout))
+		return fmt.Sprintf("⏹️ **%s** has been empty for %s: stopping automatically.", name, formatDuration(b.opts.EmptyTimeout))
 	case monitor.EventHangStop:
-		return fmt.Sprintf("⏹️ **%s** continua a non rispondere: spegnimento automatico.", name)
+		return fmt.Sprintf("⏹️ **%s** is still not responding: stopping automatically.", name)
 	}
-	return fmt.Sprintf("Evento %d su **%s**.", e.Kind, name)
+	return fmt.Sprintf("Event %d on **%s**.", e.Kind, name)
 }
 
 // audit records a user action in the logs and in the log channel.
@@ -234,15 +234,15 @@ func presenceText(s monitor.Snapshot, displayName func(string) string, now time.
 	name := displayName(s.Server)
 	switch s.State {
 	case monitor.Starting:
-		return fmt.Sprintf("🟡 %s in avvio", name)
+		return fmt.Sprintf("🟡 %s starting", name)
 	case monitor.Online:
-		return fmt.Sprintf("🟢 %s · da %s · %d/%d", name, formatDuration(now.Sub(s.Since)), s.Players, s.MaxPlayers)
+		return fmt.Sprintf("🟢 %s · for %s · %d/%d", name, formatDuration(now.Sub(s.Since)), s.Players, s.MaxPlayers)
 	case monitor.Stopping:
-		return fmt.Sprintf("🟠 %s in spegnimento", name)
+		return fmt.Sprintf("🟠 %s stopping", name)
 	case monitor.Unresponsive:
-		return fmt.Sprintf("⚠️ %s non risponde", name)
+		return fmt.Sprintf("⚠️ %s not responding", name)
 	}
-	return fmt.Sprintf("🔴 %s è spento", name)
+	return fmt.Sprintf("🔴 %s is off", name)
 }
 
 // formatDuration writes d as "2h 15m" or "15m".

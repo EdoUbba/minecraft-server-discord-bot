@@ -79,7 +79,7 @@ const stopPoll = 5 * time.Second
 const hangGrace = 30 * time.Second
 
 // stopMessage is announced to the players before a stop.
-const stopMessage = "Il server si sta spegnendo."
+const stopMessage = "The server is shutting down."
 
 type Pinger interface {
 	Ping(ctx context.Context) (minecraft.Status, error)

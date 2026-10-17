@@ -201,7 +201,7 @@ func TestPresenceOnlyWhenTextChanges(t *testing.T) {
 	b.refreshPresence()
 	b.refreshPresence()
 
-	want := []string{"🟢 Survival Friends · da 2h 15m · 3/20", "🟢 Survival Friends · da 2h 15m · 4/20", "🔴 Survival Friends è spento"}
+	want := []string{"🟢 Survival Friends · for 2h 15m · 3/20", "🟢 Survival Friends · for 2h 15m · 4/20", "🔴 Survival Friends is off"}
 	if len(s.presences) != len(want) {
 		t.Fatalf("presences = %q, want %q", s.presences, want)
 	}
@@ -215,8 +215,8 @@ func TestPresenceOnlyWhenTextChanges(t *testing.T) {
 func setupCommand(member *discordgo.Member) *discordgo.Interaction {
 	i := command("setup", member)
 	i.Data = discordgo.ApplicationCommandInteractionData{Name: "setup", Options: []*discordgo.ApplicationCommandInteractionDataOption{
-		{Name: "ruolo", Type: discordgo.ApplicationCommandOptionRole, Value: "newrole"},
-		{Name: "canale", Type: discordgo.ApplicationCommandOptionChannel, Value: "newchannel"},
+		{Name: "role", Type: discordgo.ApplicationCommandOptionRole, Value: "newrole"},
+		{Name: "channel", Type: discordgo.ApplicationCommandOptionChannel, Value: "newchannel"},
 	}}
 	return i
 }

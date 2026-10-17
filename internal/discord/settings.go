@@ -87,8 +87,8 @@ func saveSettings(path string, s settings) error {
 func (b *Bot) setup(i *discordgo.Interaction) {
 	user := userOf(i)
 	if i.Member == nil || i.Member.Permissions&discordgo.PermissionAdministrator == 0 {
-		b.audit(user, "denied /setup", fmt.Sprintf("🚫 <@%s> ha provato a usare /setup senza permessi.", user.ID))
-		b.reply(i, "Solo gli amministratori possono usare /setup.", true)
+		b.audit(user, "denied /setup", fmt.Sprintf("🚫 <@%s> tried to use /setup without permission.", user.ID))
+		b.reply(i, "Only administrators can use /setup.", true)
 		return
 	}
 
@@ -97,9 +97,9 @@ func (b *Bot) setup(i *discordgo.Interaction) {
 	changed := false
 	for _, o := range i.ApplicationCommandData().Options {
 		switch o.Name {
-		case "ruolo":
+		case "role":
 			s.OperatorRoleID, changed = o.RoleValue(nil, "").ID, true
-		case "canale":
+		case "channel":
 			s.LogChannelID, changed = o.ChannelValue(nil).ID, true
 		}
 	}
@@ -113,35 +113,35 @@ func (b *Bot) setup(i *discordgo.Interaction) {
 		b.settingsMu.Lock()
 		b.settings = s
 		b.settingsMu.Unlock()
-		b.audit(user, "setup", fmt.Sprintf("⚙️ <@%s> ha cambiato la configurazione: %s", user.ID, describe(s)))
+		b.audit(user, "setup", fmt.Sprintf("⚙️ <@%s> changed the configuration: %s", user.ID, describe(s)))
 	}
 
-	text := "Configurazione attuale: " + describe(s)
+	text := "Current configuration: " + describe(s)
 	if !changed {
-		text += "\nPer cambiarla usa le opzioni `ruolo` e `canale`."
+		text += "\nTo change it, use the `role` and `channel` options."
 	}
 	if changed && s.LogChannelID != "" {
 		// Check right away that the bot can write in the chosen channel.
 		_, err := b.s.ChannelMessageSendComplex(s.LogChannelID, &discordgo.MessageSend{
-			Content: "✅ Da ora scrivo qui il log del server Minecraft.", AllowedMentions: noMentions,
+			Content: "✅ From now on I will post the Minecraft server log here.", AllowedMentions: noMentions,
 		})
 		if err != nil {
 			slog.Warn("write to the new log channel", "error", err)
-			text += "\n⚠️ Non riesco a scrivere nel canale di log: controlla i permessi del bot in quel canale."
+			text += "\n⚠️ I cannot write in the log channel: check the bot's permissions in that channel."
 		}
 	}
 	b.reply(i, text, true)
 }
 
 func describe(s settings) string {
-	role, channel := "solo amministratori", "disattivato"
+	role, channel := "administrators only", "disabled"
 	if s.OperatorRoleID != "" {
 		role = "<@&" + s.OperatorRoleID + ">"
 	}
 	if s.LogChannelID != "" {
 		channel = "<#" + s.LogChannelID + ">"
 	}
-	return fmt.Sprintf("ruolo operatore %s, canale di log %s.", role, channel)
+	return fmt.Sprintf("operator role %s, log channel %s.", role, channel)
 }
 
 // welcome greets a guild the bot has just joined, in its system channel.
@@ -155,17 +155,17 @@ func (b *Bot) welcome(g *discordgo.Guild) {
 	if g.SystemChannelID == "" {
 		return
 	}
-	text := "👋 Ciao! Controllo il server Minecraft.\n" +
-		"Un amministratore può usare `/setup` per scegliere il ruolo operatore e il canale di log."
+	text := "👋 Hi! I control the Minecraft server.\n" +
+		"An administrator can use `/setup` to choose the operator role and the log channel."
 	switch {
 	case g.ID == b.activeGuild():
 	case b.opts.GuildID != "":
-		text = "👋 Ciao! I miei comandi sono attivi solo sul server Discord indicato in `guild_id` " +
-			"nel file di configurazione, e non è questo."
+		text = "👋 Hi! My commands only work on the Discord server set as `guild_id` " +
+			"in the configuration file, and this is not it."
 		slog.Warn("joined a guild that is not the configured one", "guild_id", g.ID)
 	default:
-		text = "👋 Ciao! Sono già su un altro server Discord, e lavoro su un server alla volta.\n" +
-			"Toglimi da lì e i miei comandi passeranno qui; poi un amministratore può usare `/setup`."
+		text = "👋 Hi! I am already on another Discord server, and I work on one server at a time.\n" +
+			"Remove me from there and my commands will move here; then an administrator can use `/setup`."
 	}
 	if _, err := b.s.ChannelMessageSendComplex(g.SystemChannelID, &discordgo.MessageSend{Content: text, AllowedMentions: noMentions}); err != nil {
 		slog.Warn("send welcome message", "error", err)
