@@ -31,6 +31,13 @@ SSH is used only for actions, once at bot startup and to confirm a crash.
 
 The two hosts can be any Linux machines; this guide uses two Proxmox LXCs.
 
+## Tested on
+
+- Proxmox VE 9.2.20, with both hosts in unprivileged LXCs
+- Debian 13.3 on the Minecraft host, Debian 13.7 on the bot host
+- Docker Compose v5.6.0 on the bot host
+- Minecraft 1.20.1, both vanilla and Forge servers
+
 ## 1. Minecraft host
 
 Everything in this section runs as root on the Minecraft host. It assumes a
