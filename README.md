@@ -133,10 +133,16 @@ In each server's `server.properties`:
 ```properties
 enable-rcon=true
 rcon.port=25575
-rcon.password=<a long random password, for example from: openssl rand -base64 24>
+rcon.password=<a long random password, for example from: openssl rand -hex 24>
 ```
 
 All the servers the bot can select must use the same RCON port and password.
+Use only letters and digits: Java reads `\` and non-ASCII characters in
+`server.properties` differently from how they are written, and Docker
+Compose expands `$` in `secrets/bot.env`. Minecraft reads the password only
+at startup, so restart the server after changing it, and recreate the bot
+container (`docker compose up -d --force-recreate`) after changing
+`bot.env`. If the bot logs `rcon: authentication failed`, check these first.
 
 ### Firewall
 
