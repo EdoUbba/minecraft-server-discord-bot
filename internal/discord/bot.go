@@ -24,6 +24,8 @@ type Server interface {
 	List(ctx context.Context) ([]string, error)
 	Select(ctx context.Context, name string) error
 	Players(ctx context.Context) ([]string, error)
+	Command(ctx context.Context, command string) (string, error)
+	Chat(ctx context.Context, message string) error
 }
 
 // session is the part of *discordgo.Session the bot uses.

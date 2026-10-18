@@ -88,6 +88,7 @@ type Pinger interface {
 type RCON interface {
 	ListPlayers(ctx context.Context) ([]string, error)
 	Say(ctx context.Context, message string) error
+	Command(ctx context.Context, command string) (string, error)
 	Stop(ctx context.Context) error
 }
 
@@ -235,6 +236,22 @@ func (m *Monitor) Players(ctx context.Context) ([]string, error) {
 		return nil, ErrState
 	}
 	return m.rcon.ListPlayers(ctx)
+}
+
+// Command runs a console command, through RCON.
+func (m *Monitor) Command(ctx context.Context, command string) (string, error) {
+	if m.Snapshot().State != Online {
+		return "", ErrState
+	}
+	return m.rcon.Command(ctx, command)
+}
+
+// Chat writes a message in the game chat, through RCON.
+func (m *Monitor) Chat(ctx context.Context, message string) error {
+	if m.Snapshot().State != Online {
+		return ErrState
+	}
+	return m.rcon.Say(ctx, message)
 }
 
 // Stop runs the stop flow and returns when the server is off.

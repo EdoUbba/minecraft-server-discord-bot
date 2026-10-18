@@ -220,3 +220,18 @@ func TestParsePlayerList(t *testing.T) {
 		})
 	}
 }
+
+func TestCommand(t *testing.T) {
+	client, received := fakeRCON(t, answer("Made §eSteve§r a server operator"))
+
+	out, err := client.Command(context.Background(), " /op\n Steve ")
+	if err != nil || out != "Made Steve a server operator" {
+		t.Fatalf("Command = %q, %v", out, err)
+	}
+	if _, err := client.Command(context.Background(), " / "); err == nil {
+		t.Error("expected an error for an empty command")
+	}
+	if got := received(); !slices.Equal(got, []string{"op Steve"}) {
+		t.Errorf("commands = %q, want [op Steve]", got)
+	}
+}

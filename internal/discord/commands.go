@@ -37,6 +37,28 @@ var commands = []*discordgo.ApplicationCommand{
 	{Name: "status", Description: "Show the Minecraft server status"},
 	{Name: "onlineplayer", Description: "Show the online players"},
 	{
+		Name:                     "command",
+		Description:              "Run a Minecraft console command (administrators only)",
+		DefaultMemberPermissions: &adminOnly,
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type: discordgo.ApplicationCommandOptionString, Name: "command", Description: "For example: op Steve",
+				Required: true, MaxLength: maxInput,
+			},
+		},
+	},
+	{
+		Name:                     "chat",
+		Description:              "Write in the Minecraft chat as the server (administrators only)",
+		DefaultMemberPermissions: &adminOnly,
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type: discordgo.ApplicationCommandOptionString, Name: "message", Description: "The message",
+				Required: true, MaxLength: maxInput,
+			},
+		},
+	},
+	{
 		Name:                     "setup",
 		Description:              "Choose the operator role and the log channel (administrators only)",
 		DefaultMemberPermissions: &adminOnly,
@@ -50,8 +72,16 @@ var commands = []*discordgo.ApplicationCommand{
 	},
 }
 
-// adminOnly hides /setup from everyone but administrators; setup checks again.
+// adminOnly hides /command, /chat and /setup from everyone but
+// administrators; their handlers check again.
 var adminOnly = int64(discordgo.PermissionAdministrator)
+
+// maxInput keeps the escaped text of /command and /chat, and the log line
+// that repeats it, under the 2000 characters of a Discord message.
+const (
+	maxInput  = 500
+	maxOutput = 900
+)
 
 // noMentions keeps user mentions in bot messages from pinging anyone.
 var noMentions = &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{}}
@@ -96,6 +126,10 @@ func (b *Bot) handle(i *discordgo.Interaction) {
 			b.status(i)
 		case "onlineplayer":
 			b.onlinePlayers(i)
+		case "command":
+			b.command(i)
+		case "chat":
+			b.chat(i)
 		case "setup":
 			b.setup(i)
 		default:
@@ -292,6 +326,77 @@ func (b *Bot) onlinePlayers(i *discordgo.Interaction) {
 			players[n] = escape(p)
 		}
 		b.edit(i, fmt.Sprintf("Players online (%d): %s", len(players), strings.Join(players, ", ")), nil)
+	}
+}
+
+// administrator answers with an ephemeral refusal, and records the attempt,
+// if the user is not an administrator.
+func (b *Bot) administrator(i *discordgo.Interaction, command string) bool {
+	if i.Member != nil && i.Member.Permissions&discordgo.PermissionAdministrator != 0 {
+		return true
+	}
+	user := userOf(i)
+	b.audit(user, "denied "+command, fmt.Sprintf("🚫 <@%s> tried to use %s without permission.", user.ID, command))
+	b.reply(i, "Only administrators can use "+command+".", true)
+	return false
+}
+
+// command runs any console command. Only administrators may use it: it can
+// do everything the server console can, operators included.
+func (b *Bot) command(i *discordgo.Interaction) {
+	if !b.administrator(i, "/command") {
+		return
+	}
+	if b.srv.Snapshot().State != monitor.Online {
+		b.reply(i, "The server is not online.", true)
+		return
+	}
+	if !b.deferReply(i, true) {
+		return
+	}
+	user, command := userOf(i), i.ApplicationCommandData().Options[0].StringValue()
+	out, err := b.srv.Command(b.ctx, command)
+	switch {
+	case errors.Is(err, monitor.ErrState):
+		b.edit(i, "The server is not online.", nil)
+	case err != nil:
+		slog.Error("command", "error", err)
+		b.edit(i, msgFailed, nil)
+	default:
+		b.audit(user, "command", fmt.Sprintf("⌨️ <@%s> ran: %s", user.ID, escape(command)))
+		if r := []rune(out); len(r) > maxOutput {
+			out = string(r[:maxOutput]) + "…"
+		}
+		if strings.TrimSpace(out) == "" {
+			out = "Done, no output."
+		}
+		b.edit(i, escape(out), nil)
+	}
+}
+
+// chat writes a message in the game chat with the say command.
+func (b *Bot) chat(i *discordgo.Interaction) {
+	if !b.administrator(i, "/chat") {
+		return
+	}
+	if b.srv.Snapshot().State != monitor.Online {
+		b.reply(i, "The server is not online.", true)
+		return
+	}
+	if !b.deferReply(i, true) {
+		return
+	}
+	user, message := userOf(i), i.ApplicationCommandData().Options[0].StringValue()
+	err := b.srv.Chat(b.ctx, message)
+	switch {
+	case errors.Is(err, monitor.ErrState):
+		b.edit(i, "The server is not online.", nil)
+	case err != nil:
+		slog.Error("chat", "error", err)
+		b.edit(i, msgFailed, nil)
+	default:
+		b.audit(user, "chat", fmt.Sprintf("💬 <@%s> wrote in the game chat: %s", user.ID, escape(message)))
+		b.edit(i, "✅ Sent.", nil)
 	}
 }
 

@@ -86,9 +86,7 @@ func saveSettings(path string, s settings) error {
 // may use it: an operator must not be able to choose who is an operator.
 func (b *Bot) setup(i *discordgo.Interaction) {
 	user := userOf(i)
-	if i.Member == nil || i.Member.Permissions&discordgo.PermissionAdministrator == 0 {
-		b.audit(user, "denied /setup", fmt.Sprintf("🚫 <@%s> tried to use /setup without permission.", user.ID))
-		b.reply(i, "Only administrators can use /setup.", true)
+	if !b.administrator(i, "/setup") {
 		return
 	}
 

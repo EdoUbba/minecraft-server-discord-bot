@@ -4,12 +4,15 @@ A Discord bot, written in Go, that starts and stops a Minecraft Java server,
 shows who is online and keeps the server state in its own profile.
 
 - `/startserver`, `/stopserver` and `/config` (choose which server to run)
-  for operators; `/status` and `/onlineplayer` for everyone.
+  for operators; `/status` and `/onlineplayer` for everyone; `/command`
+  (any console command) and `/chat` (write in the game chat) for
+  administrators.
 - The presence shows the server, its uptime and the players, for example
   *Playing 🟢 Survival · da 2h 15m · 3/20*.
 - An empty server stops by itself after a configurable time; a server that
   stops answering is stopped cleanly. A crashed server is never restarted.
-- Every start, stop, server change and refused attempt goes to a log channel.
+- Every start, stop, server change, console command, chat message and
+  refused attempt goes to a log channel.
 
 The bot, the code and this guide are all in English.
 
@@ -281,6 +284,8 @@ To update: `git pull && docker compose up -d --build`.
 | `/config` | Operators | Chooses the server to run, from a menu; only while the server is off |
 | `/status` | Everyone | Server, state, uptime, players, version |
 | `/onlineplayer` | Everyone | Names of the online players |
+| `/command <command>` | Administrators | Runs any Minecraft console command (the leading `/` is optional) and shows the answer; only while the server is online |
+| `/chat <message>` | Administrators | Writes the message in the game chat as the server; only while the server is online |
 | `/setup` | Administrators | Operator role and log channel |
 
 Operators are the members with the Administrator permission and the members
@@ -293,6 +298,10 @@ message only the user sees, those they cannot use.
   capabilities; the Minecraft server runs as a non-root user too.
 - A stolen bot key can only start, stop or switch between the existing
   servers: no shell, no forwarding, no paths.
+- Discord administrators get the full Minecraft console through `/command`
+  (op, ban, whitelist, …): give the Administrator permission only to people
+  you would give the console to. Every command they run goes to the log
+  channel.
 - The SSH host key is always checked against `secrets/known_hosts`.
 - Token, RCON password and key never appear in the logs, and the server
   address never appears in Discord.

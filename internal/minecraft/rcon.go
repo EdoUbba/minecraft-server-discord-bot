@@ -51,6 +51,17 @@ func (r *RCON) Say(ctx context.Context, message string) error {
 	return err
 }
 
+// Command runs any console command, with or without the leading slash, and
+// returns the server's answer.
+func (r *RCON) Command(ctx context.Context, command string) (string, error) {
+	command = strings.TrimPrefix(strings.Join(strings.Fields(command), " "), "/")
+	if command == "" {
+		return "", errors.New("rcon: empty command")
+	}
+	out, err := r.execute(ctx, command)
+	return formattingCode.ReplaceAllString(out, ""), err
+}
+
 // Stop asks the server to save the worlds and shut down.
 func (r *RCON) Stop(ctx context.Context) error {
 	_, err := r.execute(ctx, "stop")

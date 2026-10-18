@@ -39,6 +39,15 @@ func (f *fakeServer) Players(context.Context) ([]string, error) {
 	return nil, nil
 }
 
+func (f *fakeServer) Command(context.Context, string) (string, error) {
+	f.calls = append(f.calls, "command")
+	return "", nil
+}
+func (f *fakeServer) Chat(context.Context, string) error {
+	f.calls = append(f.calls, "chat")
+	return nil
+}
+
 type fakeSession struct {
 	responses []*discordgo.InteractionResponse
 	presences []string
@@ -345,5 +354,30 @@ func TestSettingsOfAnotherGuildAreIgnored(t *testing.T) {
 	b2.ready("app", guilds("elsewhere"))
 	if b2.operatorRole() != "" || b2.logChannel() != "" {
 		t.Fatalf("settings of another guild used: role %q, channel %q", b2.operatorRole(), b2.logChannel())
+	}
+}
+
+func TestCommandAndChatOnlyForAdministrators(t *testing.T) {
+	for _, name := range []string{"command", "chat"} {
+		cmd := func(m *discordgo.Member) *discordgo.Interaction {
+			i := command(name, m)
+			i.Data = discordgo.ApplicationCommandInteractionData{Name: name, Options: []*discordgo.ApplicationCommandInteractionDataOption{
+				{Name: name, Type: discordgo.ApplicationCommandOptionString, Value: "op Steve"},
+			}}
+			return i
+		}
+		b, srv, s := newTestBot(monitor.Snapshot{State: monitor.Online})
+		b.handle(cmd(member(0, "op"))) // an operator, not an administrator
+		if len(srv.calls) != 0 || len(b.logs) != 1 {
+			t.Fatalf("/%s by an operator: calls = %v, logs = %d; want no calls and one log", name, srv.calls, len(b.logs))
+		}
+		if len(s.responses) != 1 || s.responses[0].Data.Flags&discordgo.MessageFlagsEphemeral == 0 {
+			t.Errorf("/%s by an operator: want one ephemeral refusal, got %+v", name, s.responses)
+		}
+
+		b.handle(cmd(member(discordgo.PermissionAdministrator, "")))
+		if len(srv.calls) != 1 || srv.calls[0] != name {
+			t.Errorf("/%s by an administrator: calls = %v", name, srv.calls)
+		}
 	}
 }

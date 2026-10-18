@@ -29,7 +29,11 @@ func (r *fakeRCON) ListPlayers(context.Context) ([]string, error) {
 	return []string{"Steve"}, nil
 }
 func (r *fakeRCON) Say(context.Context, string) error { r.calls = append(r.calls, "say"); return nil }
-func (r *fakeRCON) Stop(context.Context) error        { r.calls = append(r.calls, "stop"); return nil }
+func (r *fakeRCON) Command(context.Context, string) (string, error) {
+	r.calls = append(r.calls, "command")
+	return "", nil
+}
+func (r *fakeRCON) Stop(context.Context) error { r.calls = append(r.calls, "stop"); return nil }
 
 type fakeControl struct {
 	calls []string
