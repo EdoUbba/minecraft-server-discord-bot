@@ -357,27 +357,34 @@ func TestSettingsOfAnotherGuildAreIgnored(t *testing.T) {
 	}
 }
 
-func TestCommandAndChatOnlyForAdministrators(t *testing.T) {
-	for _, name := range []string{"command", "chat"} {
-		cmd := func(m *discordgo.Member) *discordgo.Interaction {
-			i := command(name, m)
-			i.Data = discordgo.ApplicationCommandInteractionData{Name: name, Options: []*discordgo.ApplicationCommandInteractionDataOption{
-				{Name: name, Type: discordgo.ApplicationCommandOptionString, Value: "op Steve"},
-			}}
-			return i
-		}
-		b, srv, s := newTestBot(monitor.Snapshot{State: monitor.Online})
-		b.handle(cmd(member(0, "op"))) // an operator, not an administrator
-		if len(srv.calls) != 0 || len(b.logs) != 1 {
-			t.Fatalf("/%s by an operator: calls = %v, logs = %d; want no calls and one log", name, srv.calls, len(b.logs))
-		}
-		if len(s.responses) != 1 || s.responses[0].Data.Flags&discordgo.MessageFlagsEphemeral == 0 {
-			t.Errorf("/%s by an operator: want one ephemeral refusal, got %+v", name, s.responses)
-		}
+func textCommand(name string, m *discordgo.Member) *discordgo.Interaction {
+	i := command(name, m)
+	i.Data = discordgo.ApplicationCommandInteractionData{Name: name, Options: []*discordgo.ApplicationCommandInteractionDataOption{
+		{Name: name, Type: discordgo.ApplicationCommandOptionString, Value: "op Steve"},
+	}}
+	return i
+}
 
-		b.handle(cmd(member(discordgo.PermissionAdministrator, "")))
-		if len(srv.calls) != 1 || srv.calls[0] != name {
-			t.Errorf("/%s by an administrator: calls = %v", name, srv.calls)
-		}
+func TestCommandOnlyForAdministrators(t *testing.T) {
+	b, srv, s := newTestBot(monitor.Snapshot{State: monitor.Online})
+	b.handle(textCommand("command", member(0, "op"))) // an operator, not an administrator
+	if len(srv.calls) != 0 || len(b.logs) != 1 {
+		t.Fatalf("/command by an operator: calls = %v, logs = %d; want no calls and one log", srv.calls, len(b.logs))
+	}
+	if len(s.responses) != 1 || s.responses[0].Data.Flags&discordgo.MessageFlagsEphemeral == 0 {
+		t.Errorf("/command by an operator: want one ephemeral refusal, got %+v", s.responses)
+	}
+
+	b.handle(textCommand("command", member(discordgo.PermissionAdministrator, "")))
+	if len(srv.calls) != 1 || srv.calls[0] != "command" {
+		t.Errorf("/command by an administrator: calls = %v", srv.calls)
+	}
+}
+
+func TestChatForEveryone(t *testing.T) {
+	b, srv, _ := newTestBot(monitor.Snapshot{State: monitor.Online})
+	b.handle(textCommand("chat", member(0, ""))) // no permissions, no role
+	if len(srv.calls) != 1 || srv.calls[0] != "chat" {
+		t.Errorf("/chat by a plain member: calls = %v", srv.calls)
 	}
 }

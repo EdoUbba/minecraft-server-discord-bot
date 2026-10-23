@@ -4,9 +4,8 @@ A Discord bot, written in Go, that starts and stops a Minecraft Java server,
 shows who is online and keeps the server state in its own profile.
 
 - `/startserver`, `/stopserver` and `/config` (choose which server to run)
-  for operators; `/status` and `/onlineplayer` for everyone; `/command`
-  (any console command) and `/chat` (write in the game chat) for
-  administrators.
+  for operators; `/status`, `/onlineplayer` and `/chat` (write in the game
+  chat) for everyone; `/command` (any console command) for administrators.
 - The presence shows the server, its uptime and the players, for example
   *Playing 🟢 Survival · da 2h 15m · 3/20*.
 - An empty server stops by itself after a configurable time; a server that
@@ -291,7 +290,7 @@ To update: `git pull && docker compose up -d --build`.
 | `/status` | Everyone | Server, state, uptime, players, version |
 | `/onlineplayer` | Everyone | Names of the online players |
 | `/command <command>` | Administrators | Runs any Minecraft console command (the leading `/` is optional) and shows the answer; only while the server is online |
-| `/chat <message>` | Administrators | Writes the message in the game chat as the server; only while the server is online |
+| `/chat <message>` | Everyone | Writes the message in the game chat as the server; only while the server is online |
 | `/setup` | Administrators | Operator role and log channel |
 
 Operators are the members with the Administrator permission and the members
