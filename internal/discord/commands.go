@@ -48,9 +48,8 @@ var commands = []*discordgo.ApplicationCommand{
 		},
 	},
 	{
-		Name:                     "chat",
-		Description:              "Write in the Minecraft chat as the server (administrators only)",
-		DefaultMemberPermissions: &adminOnly,
+		Name:        "chat",
+		Description: "Write in the Minecraft chat as the server",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Type: discordgo.ApplicationCommandOptionString, Name: "message", Description: "The message",
@@ -72,7 +71,7 @@ var commands = []*discordgo.ApplicationCommand{
 	},
 }
 
-// adminOnly hides /command, /chat and /setup from everyone but
+// adminOnly hides /command and /setup from everyone but
 // administrators; their handlers check again.
 var adminOnly = int64(discordgo.PermissionAdministrator)
 
@@ -376,9 +375,6 @@ func (b *Bot) command(i *discordgo.Interaction) {
 
 // chat writes a message in the game chat with the say command.
 func (b *Bot) chat(i *discordgo.Interaction) {
-	if !b.administrator(i, "/chat") {
-		return
-	}
 	if b.srv.Snapshot().State != monitor.Online {
 		b.reply(i, "The server is not online.", true)
 		return
